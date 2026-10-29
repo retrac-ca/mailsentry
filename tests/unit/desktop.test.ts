@@ -71,12 +71,11 @@ describe("desktop runtime configuration", () => {
 
   it("parses smoke-test paths from arguments and environment", () => {
     const smoke = join(tempDir(), "smoke.json");
+    const envSmoke = join(tempDir(), "smoke.json");
     expect(parseSmokePath([`--smoke-test=${smoke}`], {})).toBe(smoke);
-    expect(parseSmokePath(["--smoke-test"], { MAILSENTRY_SMOKE_FILE: "/tmp/smoke.json" })).toBe(
-      "/tmp/smoke.json",
-    );
+    expect(parseSmokePath(["--smoke-test"], { MAILSENTRY_SMOKE_FILE: envSmoke })).toBe(envSmoke);
     expect(parseSmokePath(["--smoke-test"], {})).toBe(join(process.cwd(), "desktop-smoke.json"));
-    expect(parseSmokePath([], { MAILSENTRY_SMOKE_FILE: "/tmp/smoke.json" })).toBe("/tmp/smoke.json");
+    expect(parseSmokePath([], { MAILSENTRY_SMOKE_FILE: envSmoke })).toBe(envSmoke);
     expect(parseSmokePath([], {})).toBeNull();
   });
 });
