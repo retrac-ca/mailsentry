@@ -26,7 +26,7 @@ Last updated: 2026-10-29.
 
 ## Prerequisites
 
-- Node.js 22+ and the repository checked out.
+- Node.js 22.x (CI uses 22.23.2) and the repository checked out.
 - `.env` with the correct `MAILSENTRY_BASE_URL` and matching `PORT`.
 - Google OAuth client and/or Microsoft Entra app registered exactly as described in [PROVIDERS.md](PROVIDERS.md).
 - A test mailbox with a few read, unstarred, non-important messages from a unique test sender.

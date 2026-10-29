@@ -44,6 +44,7 @@ MailSentry assumes:
 5. Provider APIs, DNS resolvers, and TLS are not compromised.
 6. The browser is current and honors CSP, `HttpOnly`, and `SameSite`.
 7. The application is not exposed directly to the public internet. A non-loopback bind requires an explicit opt-in and is outside the supported threat model.
+8. The Windows desktop shell loads only the loopback UI with Node disabled and a sandboxed renderer; navigation is restricted to the app origin and OAuth provider hosts.
 
 ## Threat model and controls
 
@@ -58,6 +59,7 @@ MailSentry assumes:
 | Secret leakage in logs/errors                 | Credential exposure                        | Central redaction of bearer tokens, token parameters, Google tokens, JWTs, and sensitive object keys; no request bodies or authorization headers logged                                      | Unknown token formats may escape the pattern list                       |
 | SSRF / internal scanning                      | Network reconnaissance                     | Domain validation rejects IPs, single-label names, and reserved suffixes; DNS uses only MX/TXT; no URL fetching from diagnostics; Graph pagination links restricted to `graph.microsoft.com` | DNS queries still reveal the queried name to the local resolver         |
 | Malicious mailbox metadata (subjects/senders) | Stored XSS                                 | All UI content rendered with `textContent`/DOM nodes; no untrusted `innerHTML`; strict CSP without `unsafe-inline`                                                                           | Browser or DOM-library bugs                                             |
+| Desktop renderer loading remote content       | Token/API abuse or UI spoofing             | Sandboxed renderer, Node disabled, no preload/IPC, navigation restricted to local origin + OAuth hosts, permissions/webviews denied, external links open in system browser                   | OAuth provider pages themselves; live flow unverified                   |
 | Provider failure reported as success          | False confidence / loss                    | Mutations classified as confirmed success, confirmed failure, changed, or uncertain; ambiguous network failures never retried; partial results reported                                      | Provider may report success before durable consistency                  |
 | Runaway resource consumption                  | Denial of service / local freeze           | Pagination, 50k scan bound by default, bounded preview/result samples, 25-message batches, concurrency 3, rate limiting, timeouts, cancellation                                              | Very large mailboxes still take time; in-memory IDs scale linearly      |
 | Dependency compromise                         | Code execution / exfiltration              | Zero runtime dependencies; small pinned dev dependency set; lockfile; `npm audit`                                                                                                            | Development-tool supply chain remains a risk                            |
@@ -132,7 +134,10 @@ Application logs to stderr include domains, providers, actions, and aggregate co
 ## Known limitations and unresolved risks
 
 - No independent security audit.
-- No live verification of Gmail or Microsoft Graph behavior in this repository.
+- No live verification of Gmail or Microsoft Graph behavior in this repository, including the Electron in-window OAuth flow.
+- The Windows installer/portable build is unsigned; installer installation, upgrade, and uninstall have not been tested.
+- No Windows auto-update mechanism; users must obtain new builds manually.
+- Electron/Chromium adds a large runtime attack surface compared with the headless server; the renderer is sandboxed, but dependency and Chromium updates remain required.
 - Provider semantics and retention policies vary; MailSentry cannot guarantee what “Trash” means or that recovery is possible.
 - Gmail permanent delete/empty trash requires a scope that is intentionally not requested.
 - Attachment-size filtering is unavailable because list metadata does not expose reliable sizes.

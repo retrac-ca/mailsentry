@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "feature/**"
   pull_request:
 
 permissions:
@@ -24,7 +26,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "22.23.2"
           cache: npm
 
       - name: Install locked dependencies
@@ -47,3 +49,26 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
+
+  windows-package:
+    name: Windows desktop packaging check
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.23.2"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build Windows unpacked application
+        run: npm run dist:win:dir
+
+      # Intentionally no artifact upload. Builds are verified locally and must
+      # not be published without explicit release approval and code signing.

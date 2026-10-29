@@ -4,7 +4,7 @@
 
 MailSentry is a local-first, open-source email infrastructure health checker and mailbox cleanup tool from [RETRAC](https://retrac.ca). It inspects public DNS records for a domain and helps you review, dry-run, and execute conservative mailbox cleanup through official provider APIs.
 
-> **Project status:** secure MVP implementation. The core, diagnostics, provider adapters, UI, safety controls, and test suite are implemented. Gmail and Microsoft Graph adapters are written against documented APIs but have **not been verified against live accounts** in this repository because no OAuth credentials were available. MailSentry has **not** undergone an independent security audit.
+> **Project status:** secure MVP implementation with an unsigned Windows desktop build. The core, diagnostics, provider adapters, UI, safety controls, and test suite are implemented. Gmail and Microsoft Graph adapters are written against documented APIs but have **not been verified against live accounts** in this repository because no OAuth credentials were available. MailSentry has **not** undergone an independent security audit. The Windows installer was built but not installed/upgrade-tested; the unpacked and portable builds were launched natively on Windows 11.
 
 ---
 
@@ -15,6 +15,7 @@ MailSentry is a local-first, open-source email infrastructure health checker and
 - [Provider support](#provider-support)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
+- [Windows desktop](#windows-desktop)
 - [Configuration](#configuration)
 - [OAuth setup](#oauth-setup)
 - [Using Email Health](#using-email-health)
@@ -56,10 +57,11 @@ Every finding reports severity, what was checked, what was observed, why it matt
 
 ### Operational characteristics
 
+- Runs as a local web/server application or an installed Electron desktop app.
 - No permanent background worker, database, queue, or cloud service.
 - No analytics, telemetry, advertising SDKs, or hidden external requests.
 - OAuth tokens are held in local server memory only; nothing is written to disk.
-- Runtime dependencies: **zero**. Development dependencies only.
+- Runtime dependencies for the headless/server application: **zero**. Electron is bundled only into the desktop artifact.
 - Responsive, keyboard-accessible interface with light and dark color schemes.
 
 ---
@@ -94,20 +96,26 @@ Live verification requires your own OAuth application registration. See [docs/PR
 
 ## Requirements
 
-- Node.js **22 or newer** (developed and benchmarked on Node 22.23.2).
+**Desktop app users:** 64-bit Windows 10 or Windows 11. No Node.js or developer tools are required. Verified on Windows 11 x64.
+
+**Development / building:**
+
+- Node.js **22.x**, pinned to **22.23.2** in `.nvmrc` and CI. `engines` requires `22.x`.
 - npm 10 or newer.
-- Linux, macOS, Windows with WSL2, or another environment with a loopback network stack.
+- Linux, macOS, WSL2, or Windows with a loopback network stack.
 - No database, Docker, or external service.
 
 ---
 
 ## Quick start
 
+Run the local web/server version:
+
 ```bash
 git clone https://github.com/retrac-ca/mailsentry.git
 cd mailsentry
-npm ci
 cp .env.example .env
+npm ci
 npm run build
 npm start
 ```
@@ -116,7 +124,34 @@ Open <http://127.0.0.1:4310>.
 
 Email Health works without OAuth configuration. Mailbox Cleanup requires a Gmail or Microsoft OAuth client; the app shows setup guidance until one is configured.
 
-### Development
+### Windows desktop
+
+The desktop app starts the existing server inside Electron, so users do not need a terminal or a system Node installation.
+
+```powershell
+npm ci
+npm run dist:win
+```
+
+Outputs (local, not published):
+
+```text
+release\MailSentry-Setup-0.1.0-x64.exe      # unsigned NSIS installer
+release\MailSentry-Portable-0.1.0-x64.exe   # unsigned portable app
+release\win-unpacked\                       # unpacked test build
+```
+
+For development:
+
+```powershell
+npm run desktop
+```
+
+Desktop configuration lives in `%APPDATA%\MailSentry\.env`; the app copies `.env.example` there on first launch. It requires `MAILSENTRY_BASE_URL=http://127.0.0.1:4310` and `PORT=4310`, and OAuth redirects must use the same exact origin. See [docs/WINDOWS.md](docs/WINDOWS.md) for build requirements, data locations, smoke testing, installer limitations, and the manual Windows checklist.
+
+The current artifacts are **unsigned** and have **not** been installed/upgrade-tested. The unpacked and portable builds were launched natively on Windows 11; see the completion report and `docs/WINDOWS.md`.
+
+### Development (browser/server)
 
 ```bash
 npm run dev        # builds the browser bundle, then runs the TypeScript server with watch
@@ -143,7 +178,7 @@ The CLI performs a fixed set of public DNS lookups. It does not send mail or cha
 
 ## Configuration
 
-Copy `.env.example` to `.env`. `.env` is ignored by Git and is loaded automatically when the server starts; values already present in the process environment take precedence.
+Copy `.env.example` to `.env`. `.env` is ignored by Git and is loaded automatically when the server starts; values already present in the process environment take precedence. The packaged Windows app uses `%APPDATA%\MailSentry\.env` and writes `.env.example` there on first launch.
 
 | Variable                  | Required      | Purpose                                                                                                                |
 | ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -167,7 +202,7 @@ Full step-by-step instructions, scopes, redirect URIs, and troubleshooting are i
 
 Short version:
 
-1. Set `MAILSENTRY_BASE_URL` to the exact origin you use, e.g. `http://127.0.0.1:4310`. Do not include a path, and keep its port equal to `PORT`.
+1. Set `MAILSENTRY_BASE_URL` to the exact origin you use, e.g. `http://127.0.0.1:4310`. Do not include a path, and keep its port equal to `PORT`. The desktop app requires exactly `http://127.0.0.1:4310`.
 2. **Google:** create an OAuth 2.0 Web application client; add `http://127.0.0.1:4310/auth/gmail/callback`; set `GOOGLE_CLIENT_ID`.
 3. **Microsoft:** create an Entra ID app registration; add `http://127.0.0.1:4310/auth/microsoft/callback`; enable public client flows if using PKCE without a secret; set `MICROSOFT_CLIENT_ID`.
 4. Restart MailSentry and connect from **Settings** or **Mailbox Cleanup**.
@@ -299,7 +334,7 @@ MailSentry is local-first, not magic: whoever controls the local machine or the 
 ## Testing and validation
 
 ```bash
-npm test              # 167 unit + integration tests
+npm test              # 174 unit + integration tests
 npm run test:coverage # V8 coverage
 npm run typecheck     # server and browser
 npm run lint          # ESLint
@@ -325,6 +360,8 @@ Tests use only synthetic data and mocked HTTP. There is no test that connects to
 
 GitHub Actions runs typecheck, lint, formatting, tests, build, and dependency audit on every push and pull request; the workflow is in `.github/workflows/ci.yml`.
 
+The packaged Windows build was also launched natively: smoke test, normal launch/close, relaunch, persisted window state/logs, port-conflict failure, and the portable executable all passed. The NSIS installer was built but not installed. See [docs/WINDOWS.md](docs/WINDOWS.md) and [docs/TESTING.md](docs/TESTING.md).
+
 ---
 
 ## Project layout
@@ -332,6 +369,7 @@ GitHub Actions runs typecheck, lint, formatting, tests, build, and dependency au
 ```text
 src/
   core/          cleanup planning, eligibility, executor, batching, capabilities
+  desktop/       Electron main process, desktop paths, window state, smoke test
   diagnostics/   DNS resolver, SPF/DKIM/DMARC parsers, report builder
   providers/     OAuth, token store, Gmail, Microsoft Graph, HTTP policy, synthetic provider
   security/      validation, redaction, logging
@@ -340,9 +378,10 @@ src/
   web/           accessible vanilla TypeScript UI and styles
   cli/           domain diagnostics CLI
   bench/         reproducible synthetic memory benchmark
+build/           Windows icon assets
+docs/            architecture, providers, privacy, Windows, testing, benchmarks
+scripts/         web/icon build and development runner
 tests/           unit and integration tests (synthetic only)
-docs/            architecture, providers, privacy, testing, benchmarks
-scripts/         web build and development runner
 ```
 
 ---

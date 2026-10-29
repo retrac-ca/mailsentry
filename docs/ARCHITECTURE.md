@@ -54,32 +54,34 @@ Rejected for the MVP: React/Next (unnecessary runtime), Express/Fastify (tiny ro
 
 ## Module responsibilities
 
-| Path                           | Responsibility                                                  |
-| ------------------------------ | --------------------------------------------------------------- |
-| `src/shared/types.ts`          | Cross-boundary contracts; no secrets, no provider logic         |
-| `src/core/config.ts`           | Environment loading and loopback/base-URL validation            |
-| `src/core/capabilities.ts`     | Provider capability matrix and action semantics                 |
-| `src/core/eligibility.ts`      | Pure filter/protection evaluation and sender matching           |
-| `src/core/scan.ts`             | Paginated, read-only aggregation; action/folder validation      |
-| `src/core/plan.ts`             | Plan hash, TTL store, review token, execution gate              |
-| `src/core/executor.ts`         | Per-message revalidation, bounded execution, outcomes           |
-| `src/core/connection-check.ts` | Read-only folder/metadata provider readiness check              |
-| `src/core/batch.ts`            | Chunking, token bucket, bounded-concurrency helper              |
-| `src/diagnostics/*`            | DNS adapter and pure SPF/DMARC/DKIM analysis                    |
-| `src/providers/provider.ts`    | `MailProvider` interface and folder types                       |
-| `src/providers/oauth.ts`       | Google/Microsoft authorization-code + PKCE clients              |
-| `src/providers/token-store.ts` | Memory-only connection/token map                                |
-| `src/providers/scopes.ts`      | Granted-scope parsing and required-scope diagnostics            |
-| `src/providers/manager.ts`     | OAuth state, refresh, status, adapter construction              |
-| `src/providers/gmail.ts`       | Gmail REST metadata/mutations and capability enforcement        |
-| `src/providers/microsoft.ts`   | Graph metadata/mutations, folder mapping, pagination validation |
-| `src/providers/http.ts`        | Timeouts, pacing, bounded retries, error classification         |
-| `src/providers/synthetic.ts`   | In-memory test/benchmark provider (never registered in the app) |
-| `src/security/validation.ts`   | Domain/selector/folder/filter/sender validation                 |
-| `src/security/redact.ts`       | Credential-safe strings/objects/errors                          |
-| `src/server/app.ts`            | HTTP routing, sessions, API, OAuth callback, job lifecycle      |
-| `src/server/session.ts`        | Session and bounded job/diagnostic retention                    |
-| `src/web/*`                    | Accessible UI; no provider credentials or business logic        |
+| Path                           | Responsibility                                                     |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `src/shared/types.ts`          | Cross-boundary contracts; no secrets, no provider logic            |
+| `src/core/config.ts`           | Environment loading and loopback/base-URL validation               |
+| `src/core/capabilities.ts`     | Provider capability matrix and action semantics                    |
+| `src/core/eligibility.ts`      | Pure filter/protection evaluation and sender matching              |
+| `src/core/scan.ts`             | Paginated, read-only aggregation; action/folder validation         |
+| `src/core/plan.ts`             | Plan hash, TTL store, review token, execution gate                 |
+| `src/core/executor.ts`         | Per-message revalidation, bounded execution, outcomes              |
+| `src/core/connection-check.ts` | Read-only folder/metadata provider readiness check                 |
+| `src/desktop/main.ts`          | Electron main process, window lifecycle, navigation/session guard  |
+| `src/desktop/runtime.ts`       | Desktop paths, config/origin validation, window state, smoke paths |
+| `src/core/batch.ts`            | Chunking, token bucket, bounded-concurrency helper                 |
+| `src/diagnostics/*`            | DNS adapter and pure SPF/DMARC/DKIM analysis                       |
+| `src/providers/provider.ts`    | `MailProvider` interface and folder types                          |
+| `src/providers/oauth.ts`       | Google/Microsoft authorization-code + PKCE clients                 |
+| `src/providers/token-store.ts` | Memory-only connection/token map                                   |
+| `src/providers/scopes.ts`      | Granted-scope parsing and required-scope diagnostics               |
+| `src/providers/manager.ts`     | OAuth state, refresh, status, adapter construction                 |
+| `src/providers/gmail.ts`       | Gmail REST metadata/mutations and capability enforcement           |
+| `src/providers/microsoft.ts`   | Graph metadata/mutations, folder mapping, pagination validation    |
+| `src/providers/http.ts`        | Timeouts, pacing, bounded retries, error classification            |
+| `src/providers/synthetic.ts`   | In-memory test/benchmark provider (never registered in the app)    |
+| `src/security/validation.ts`   | Domain/selector/folder/filter/sender validation                    |
+| `src/security/redact.ts`       | Credential-safe strings/objects/errors                             |
+| `src/server/app.ts`            | HTTP routing, sessions, API, OAuth callback, job lifecycle         |
+| `src/server/session.ts`        | Session and bounded job/diagnostic retention                       |
+| `src/web/*`                    | Accessible UI; no provider credentials or business logic           |
 
 ## Diagnostics flow
 
@@ -272,9 +274,24 @@ Only message IDs, folders, counts, and bounded samples are retained. No body or 
 - `executeCleanup` accepts an injected clock, signal, batch/concurrency settings, and progress callback.
 - Server tests use an ephemeral loopback port and synthetic sessions; no real OAuth or mailbox is contacted.
 
+## Desktop shell (Windows)
+
+The Windows build uses Electron as a thin shell around the existing local application:
+
+- The Electron main process loads provider configuration from `%APPDATA%\MailSentry\.env` (or the repository `.env` in development), starts one `MailSentryApp` HTTP server in-process on `127.0.0.1:4310`, and only then creates the window.
+- The renderer loads `http://127.0.0.1:4310` with `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, and no preload bridge or IPC surface.
+- Navigation is restricted to the local origin and known OAuth authorization hosts (`accounts.google.com`, `login.microsoftonline.com`, `login.live.com`, `account.live.com`, `login.microsoft.com`). Other HTTPS links open in the system browser; other schemes are refused.
+- Permission requests and webviews are denied. The Chromium session uses a non-persistent partition and is cleared at startup, so provider login cookies do not outlive the in-memory server session.
+- Closing the window stops the HTTP server and closes sockets. A running cleanup job triggers a warning before quit; completed changes are never claimed to be rolled back.
+- Window size/maximized state is stored in the user-data directory; logs are written to `logs/mailsentry.log` with 5 MB rotation and the existing redaction rules.
+- The app is single-instance. A fixed loopback port is required because OAuth redirect URIs are registered for that exact origin.
+- No auto-update, telemetry, or background process is included.
+
+Packaging is defined in `electron-builder.yml` (NSIS per-user installer + portable executable, x64). Icons are generated by `scripts/build-icon.mjs`. The desktop shell is intentionally limited to `http://127.0.0.1:<port>`; reverse-proxy/HTTPS desktop configurations are unsupported.
+
 ## Deployment model
 
-Supported: `npm run build && npm start` on a local machine, opened at `http://127.0.0.1:4310`. Unsupported: multi-user hosting, public exposure, containers without loopback isolation, TLS termination without an explicit HTTPS base URL. A non-loopback bind requires an explicit opt-in and is not covered by the security model.
+Supported: `npm run build && npm start` on a local machine opened at `http://127.0.0.1:4310`, or the packaged Windows desktop app (Electron). Unsupported: multi-user hosting, public exposure, containers without loopback isolation, TLS termination without an explicit HTTPS base URL. A non-loopback bind requires an explicit opt-in and is not covered by the security model. The desktop shell supports only loopback HTTP on the configured port.
 
 ## Future extension points
 

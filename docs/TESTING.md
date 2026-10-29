@@ -20,11 +20,11 @@ Latest reference run (this implementation):
 
 | Check            | Result                               |
 | ---------------- | ------------------------------------ |
-| Tests            | **167 passed / 167** across 11 files |
-| Statements       | 78.70%                               |
-| Branches         | 67.21%                               |
-| Functions        | 85.37%                               |
-| Lines            | 81.02%                               |
+| Tests            | **174 passed / 174** across 12 files |
+| Statements       | 78.66%                               |
+| Branches         | 67.13%                               |
+| Functions        | 85.43%                               |
+| Lines            | 81.06%                               |
 | TypeScript       | Clean (server + browser)             |
 | ESLint           | Clean                                |
 | Prettier         | Clean                                |
@@ -138,6 +138,23 @@ git grep -nE '(ya29\.|BEGIN (RSA |EC )?PRIVATE KEY|client_secret\s*=\s*[^ ]+)' -
 
 The repository contains no `.env`, keys, tokens, or mailbox fixtures. `.env` and benchmark output are ignored.
 
+## Windows desktop validation
+
+The packaged Electron build was tested natively on Windows 11 Home x64 (build `10.0.26200`), not merely built in WSL:
+
+| Check          | Procedure                                                                        | Result                                                                                |
+| -------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Packaged smoke | `MailSentry.exe --smoke-test=<path>` with isolated `MAILSENTRY_USER_DATA_DIR`    | Passed; renderer heading, six nav items, `/api/status`, Electron 45.1.0, Node 24.22.1 |
+| Normal launch  | Started `win-unpacked\MailSentry.exe`; polled `http://127.0.0.1:4310/api/status` | Passed                                                                                |
+| Clean shutdown | Sent `CloseMainWindow()`; waited for exit                                        | Exit 0; no orphan `MailSentry.exe`                                                    |
+| Relaunch       | Started/closed a second time with same user data                                 | Passed                                                                                |
+| Persistence    | Inspected user-data folder                                                       | `.env.example`, `window-state.json`, redacted log present                             |
+| Port conflict  | Bound 4310 with a TCP listener, then launched smoke build                        | Exit 1 with `EADDRINUSE`; no orphan                                                   |
+| Portable EXE   | Ran `MailSentry-Portable-0.1.0-x64.exe` smoke                                    | Passed                                                                                |
+| NSIS installer | Built natively; not installed                                                    | Build succeeded; install/upgrade/uninstall unverified                                 |
+
+The Linux/WSL host could not normally launch Electron due missing GUI libraries, and NSIS builds there fail without Wine; the native Windows build host was used for runtime and installer validation. Browser cookies/tokens were not inspected; the app uses an in-memory session partition and clears storage at startup.
+
 ## Benchmark
 
 See [BENCHMARKS.md](BENCHMARKS.md). Commands:
@@ -151,10 +168,7 @@ npm run bench
 
 `.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
 
-- locked install (`npm ci`);
-- typecheck, ESLint, Prettier check;
-- unit and integration tests;
-- production build;
-- `npm audit --audit-level=high`.
+- Linux: locked install, typecheck, ESLint, Prettier check, unit/integration tests, production build, and dependency audit.
+- Windows: locked install and a Windows `win-unpacked` desktop build. No artifacts are uploaded.
 
 The workflow has read-only repository permissions and does not deploy, publish, or access provider credentials. It is not a substitute for live provider verification or an independent security review.

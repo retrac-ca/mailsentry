@@ -35,6 +35,10 @@ Statuses describe this repository, not intentions. Live provider verification an
 - [x] Automated safety tests using synthetic mailboxes and mocked HTTP only
 - [x] Reproducible synthetic memory benchmark across 2k–30k messages, including rate limiting and cancellation
 - [x] Architecture, provider, privacy, security, testing, and benchmark documentation
+- [x] Electron-based Windows desktop shell that starts the existing loopback server in-process, blocks Node in the renderer, restricts navigation, and shuts down without orphan processes
+- [x] Unsigned x64 NSIS installer and portable Windows build generated natively on Windows
+- [x] Native Windows launch, clean shutdown, relaunch, port-conflict, and packaged smoke tests
+- [!] Windows installer installation/upgrade/uninstall and code signing — not verified
 - [!] Live Gmail and Microsoft verification — blocked on user-supplied OAuth registrations and test accounts
 - [ ] Independent third-party security audit
 
@@ -71,5 +75,6 @@ Statuses describe this repository, not intentions. Live provider verification an
 - [!] Attachment-size filtering is blocked for both current providers because their list APIs do not expose reliable per-attachment sizes. MailSentry will not guess; the capability is modeled and disabled.
 - [!] Gmail permanent delete and Empty Trash remain disabled because MailSentry refuses to request the `https://mail.google.com/` full-mailbox scope.
 - [!] Microsoft archive requires an Archive folder; mailboxes without one receive a clear runtime error instead of a fallback.
+- [!] Windows installer execution, upgrade, uninstall, and code signing are not verified; the installer and portable executable are built but unsigned.
 - [!] Live provider verification is blocked on external credentials and test accounts.
 - [!] Token encryption at rest is not implemented. Credentials are memory-only by design; safe platform-keyring storage would be required before adding persistence.

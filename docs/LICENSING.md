@@ -38,23 +38,25 @@ There were no third-party contributions in the repository history at the time of
 
 ## Runtime dependencies
 
-**None.** The server, CLI, diagnostics, cleanup core, and browser client use Node.js built-ins and hand-written TypeScript/CSS. MailSentry introduces no runtime third-party license obligations.
+**Headless/server runtime dependencies: none.** The desktop artifact additionally bundles Electron (MIT) and its Chromium/Node runtime components; Electron's own license notices are included in `release/win-unpacked` as `LICENSE.electron.txt` and `LICENSES.chromium.html`. MailSentry adds no runtime npm dependency.
 
 ## Development dependencies
 
-| Package               | License    | Distributed to users?                         |
-| --------------------- | ---------- | --------------------------------------------- |
-| `typescript`          | Apache-2.0 | No (build-time)                               |
-| `esbuild`             | MIT        | No (build-time; output contains project code) |
-| `tsx`                 | MIT        | No (development runner)                       |
-| `vitest`              | MIT        | No                                            |
-| `@vitest/coverage-v8` | MIT        | No                                            |
-| `eslint`              | MIT        | No                                            |
-| `typescript-eslint`   | MIT        | No                                            |
-| `prettier`            | MIT        | No                                            |
-| `@types/node`         | MIT        | No                                            |
+| Package               | License    | Distributed to users?                            |
+| --------------------- | ---------- | ------------------------------------------------ |
+| `electron`            | MIT        | Bundled only inside the Windows desktop artifact |
+| `electron-builder`    | MIT        | No (packaging tool)                              |
+| `typescript`          | Apache-2.0 | No (build-time)                                  |
+| `esbuild`             | MIT        | No (build-time; output contains project code)    |
+| `tsx`                 | MIT        | No (development runner)                          |
+| `vitest`              | MIT        | No                                               |
+| `@vitest/coverage-v8` | MIT        | No                                               |
+| `eslint`              | MIT        | No                                               |
+| `typescript-eslint`   | MIT        | No                                               |
+| `prettier`            | MIT        | No                                               |
+| `@types/node`         | MIT        | No                                               |
 
-All are permissive and compatible with distributing the project under MIT. They are development-only and are not shipped in `dist/`.
+All are permissive and compatible with distributing the project under MIT. Development tools are not shipped in `dist/`; Electron is bundled only in the desktop artifact with its notices.
 
 Transitive development dependencies may have other permissive licenses. Before a formal release, run an inventory:
 

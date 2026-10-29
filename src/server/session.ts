@@ -109,4 +109,8 @@ export class SessionStore {
     }
     return undefined;
   }
+
+  hasActiveJobs(): boolean {
+    return [...this.sessions.values()].some((session) => this.activeJob(session) !== undefined);
+  }
 }

@@ -726,6 +726,14 @@ export class MailSentryApp {
     this.sessions.closeAll();
     const server = this.server;
     if (!server) return;
-    await new Promise<void>((resolvePromise) => server.close(() => resolvePromise()));
+    await new Promise<void>((resolvePromise) => {
+      server.close(() => resolvePromise());
+      server.closeAllConnections();
+    });
+    this.server = null;
+  }
+
+  hasActiveJobs(): boolean {
+    return this.sessions.hasActiveJobs();
   }
 }

@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadEnvFile } from "node:process";
 import { AppError } from "./errors.js";
 
 export interface OAuthAppConfig {
@@ -44,22 +43,40 @@ function parsePort(value: string | null): number {
 
 /**
  * Load `.env` from the project directory when present. Values already present
- * in the process environment take precedence (Node's loadEnvFile behavior).
+ * in the process environment take precedence. The parser is intentionally
+ * small and BOM-tolerant because Windows editors (notably Windows PowerShell)
+ * may write UTF-8 with a BOM, which would otherwise hide the first key.
  * Returns the loaded path, or null when no file exists.
  */
 export function loadDotEnv(rootDir = process.cwd()): string | null {
   const path = resolve(rootDir, ".env");
   if (!existsSync(path)) return null;
+  let content: string;
   try {
-    loadEnvFile(path);
-    return path;
+    content = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
   } catch (error) {
     throw new AppError(
       "VALIDATION",
-      `.env could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+      `.env could not be read: ${error instanceof Error ? error.message : "unknown error"}`,
       500,
     );
   }
+
+  for (let line of content.split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || line.startsWith("#")) continue;
+    if (line.startsWith("export ")) line = line.slice("export ".length).trim();
+    const separator = line.indexOf("=");
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    let value = line.slice(separator + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+  return path;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {

@@ -23,6 +23,21 @@ Local-first does not mean risk-free: provider APIs still see requests, OAuth ide
 
 **Logs:** JSON lines to stderr at `info` by default. They include timestamp, scope, event, provider, action, domain for diagnostics, and aggregate counts. They deliberately omit tokens, authorization headers, subjects, sender addresses, message IDs, and request bodies. The operator's terminal or process supervisor controls log retention. Set `MAILSENTRY_LOG_LEVEL=warn` or `error` to reduce output.
 
+## Windows desktop data
+
+The packaged Electron app stores its desktop-specific data under:
+
+```text
+%APPDATA%\MailSentry\
+  .env                 # optional OAuth client configuration
+  .env.example         # template copied on first launch
+  logs\mailsentry.log  # redacted JSON logs, rotated at 5 MB
+  window-state.json    # window size/maximized state
+  ...                  # Chromium cache/state files
+```
+
+OAuth tokens, session IDs, cleanup plans/jobs, diagnostics, and provider login cookies remain memory-only. The Desktop uses a non-persistent Chromium partition and clears its storage at startup. The local HTTP server still contacts providers and DNS only when the corresponding feature is invoked. See [WINDOWS.md](WINDOWS.md).
+
 ## Cookies and browser storage
 
 - One cookie: `ms_sid`, a random session identifier.
@@ -47,7 +62,7 @@ Nothing external is contacted on page load. Requests occur only when you invoke 
 
 Provider requests are HTTPS. Redirects are disabled for provider API/token calls. Graph pagination is restricted to `graph.microsoft.com`; Gmail pagination tokens are opaque.
 
-There are **no** calls to analytics, CDNs, font services, error trackers, package registries, or AI services. The browser loads only same-origin `/app.js`, `/styles.css`, and `/favicon.svg`, consistent with the Content Security Policy.
+There are **no** calls to analytics, CDNs, font services, error trackers, package registries, or AI services. The browser loads only same-origin `/app.js`, `/styles.css`, and `/favicon.svg`, consistent with the Content Security Policy. The desktop shell additionally opens provider authorization pages in the same window for the OAuth flow; those are provider-controlled pages, not MailSentry assets.
 
 ## Information visible to third parties
 

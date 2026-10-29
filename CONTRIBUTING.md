@@ -23,7 +23,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Required: Node.js 22+ and npm. No database or container runtime is needed.
+Required: Node.js **22.x** (pinned to 22.23.2 in `.nvmrc`) and npm 10+. No database or container runtime is needed.
 
 Before opening a pull request:
 
@@ -53,6 +53,19 @@ npm audit
 - `src/server` owns HTTP, sessions, validation, and route wiring.
 - `src/web` renders state and calls the local API. It must not implement safety decisions as its only enforcement.
 - `src/shared` contains contracts with no secrets and no provider logic.
+
+## Desktop / packaging
+
+Requirements: Node.js 22.x, npm 10+, and a working desktop environment. Windows packaging is verified on Windows 11 x64; NSIS from Linux/WSL requires Wine.
+
+```bash
+npm run build
+npm run desktop                 # Electron window (requires a display)
+npm run dist:win                # Windows NSIS installer + portable executable
+npm run dist:win:dir            # unpacked Windows app only
+```
+
+Do not commit `release/`. Do not claim the unsigned artifacts are signed. See [docs/WINDOWS.md](docs/WINDOWS.md).
 
 ## Safety invariants (mandatory)
 

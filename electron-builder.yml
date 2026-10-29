@@ -1,0 +1,45 @@
+appId: ca.retrac.mailsentry
+productName: MailSentry
+copyright: Copyright © 2026 RETRAC
+asar: true
+compression: normal
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - "dist/**/*"
+  - "!dist/**/*.map"
+  - "package.json"
+  - "LICENSE"
+  - "README.md"
+  - "ROADMAP.md"
+  - "docs/**/*"
+  - ".env.example"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+  requestedExecutionLevel: asInvoker
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  artifactName: "${productName}-Setup-${version}-${arch}.${ext}"
+
+portable:
+  artifactName: "${productName}-Portable-${version}-${arch}.${ext}"

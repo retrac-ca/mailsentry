@@ -216,16 +216,22 @@ describe("configuration validation", () => {
   it("loads .env from the project directory when present", async () => {
     const dir = await mkdtemp(join(tmpdir(), "mailsentry-env-"));
     const key = "MAILSENTRY_TEST_DOTENV_VALUE";
+    const second = "MAILSENTRY_TEST_DOTENV_SECOND";
     const previous = process.env[key];
+    const previousSecond = process.env[second];
     delete process.env[key];
+    delete process.env[second];
     try {
       expect(loadDotEnv(dir)).toBeNull();
-      await writeFile(join(dir, ".env"), `${key}=loaded-from-dotenv\n`, "utf8");
+      await writeFile(join(dir, ".env"), `\uFEFF${key}=loaded-from-dotenv\n${second}=second-value\n`, "utf8");
       expect(loadDotEnv(dir)).toBe(join(dir, ".env"));
       expect(process.env[key]).toBe("loaded-from-dotenv");
+      expect(process.env[second]).toBe("second-value");
     } finally {
       delete process.env[key];
+      delete process.env[second];
       if (previous !== undefined) process.env[key] = previous;
+      if (previousSecond !== undefined) process.env[second] = previousSecond;
       await rm(dir, { recursive: true, force: true });
     }
   });

@@ -15,6 +15,7 @@
     "src/security/**/*.ts",
     "src/shared/**/*.ts",
     "src/cli/**/*.ts",
-    "src/bench/**/*.ts"
+    "src/bench/**/*.ts",
+    "src/desktop/**/*.ts"
   ]
 }
