@@ -36,6 +36,7 @@ Statuses describe this repository, not intentions. Live provider verification an
 - [x] Reproducible synthetic memory benchmark across 2k–30k messages, including rate limiting and cancellation
 - [x] Architecture, provider, privacy, security, testing, and benchmark documentation
 - [x] Electron-based Windows desktop shell that starts the existing loopback server in-process, blocks Node in the renderer, restricts navigation, and shuts down without orphan processes
+- [x] Desktop OAuth opens in the system default browser with server-side single-use state and S256 PKCE; callbacks do not rely on a shared browser cookie
 - [x] Unsigned x64 NSIS installer and portable Windows build generated natively on Windows
 - [x] Native Windows launch, clean shutdown, relaunch, port-conflict, and packaged smoke tests
 - [!] Windows installer installation/upgrade/uninstall and code signing — not verified

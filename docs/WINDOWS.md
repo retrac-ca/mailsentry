@@ -266,6 +266,8 @@ Installer execution/upgrade/uninstall is **not** verified in this repository. Tr
 | Window is blank                           | Check `%APPDATA%\MailSentry\logs\mailsentry.log`; rebuild to ensure `dist/public` is present.       |
 | Provider actions fail                     | Check granted scopes in Settings, reconnect with cleanup access, and verify provider permissions.   |
 | Port conflict error mentions `EADDRINUSE` | Another instance/program owns 4310; only one MailSentry instance is allowed.                        |
+| System browser does not open              | Check the Windows default-browser configuration; start the connection again.                        |
+| Callback page says unknown/expired state  | Authorization took over 10 minutes, was reused, or the app restarted. Close it and connect again.   |
 
 ## Known limitations
 
