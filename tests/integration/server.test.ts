@@ -136,6 +136,28 @@ describe("local HTTP server safety", () => {
     expect(body.error.code).toBe("NOT_CONFIGURED");
   });
 
+  it("protects the read-only connection check with session and CSRF", async () => {
+    const { csrf, cookie } = await status();
+    const withoutToken = await fetch(`${base}/api/providers/gmail/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: "{}",
+    });
+    expect(withoutToken.status).toBe(403);
+
+    const unconfigured = await fetch(`${base}/api/providers/gmail/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie, "x-csrf-token": csrf },
+      body: "{}",
+    });
+    expect(unconfigured.status).toBe(400);
+    const body = (await unconfigured.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("NOT_CONFIGURED");
+
+    const wrongMethod = await fetch(`${base}/api/providers/gmail/check`, { method: "GET" });
+    expect(wrongMethod.status).toBe(405);
+  });
+
   it("requires a reviewed plan before execution", async () => {
     const { csrf, cookie } = await status();
     const response = await fetch(`${base}/api/cleanup/execute`, {

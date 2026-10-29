@@ -10,7 +10,7 @@ import type {
 import { ProviderError } from "./errors.js";
 import { truncate } from "./headers.js";
 import { parseJson, providerRequest } from "./http.js";
-import type { MailProvider, ProviderPage } from "./provider.js";
+import type { MailProvider, ProviderPage, FolderProbeResult } from "./provider.js";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
@@ -45,6 +45,7 @@ interface GraphFolder {
   id?: string;
   displayName?: string;
   wellKnownName?: string;
+  totalItemCount?: number;
 }
 
 const WELL_KNOWN: Record<FolderKind, string> = {
@@ -220,6 +221,25 @@ export class MicrosoftProvider implements MailProvider {
             evidence: `Sender local part "${localPart}" resembles bulk mail; header inspection is not available.`,
           }
         : { level: "none", evidence: null },
+    };
+  }
+
+  async probeFolder(folder: FolderKind, signal?: AbortSignal): Promise<FolderProbeResult> {
+    const id = await this.folderId(folder);
+    const folderInfo = await this.request<GraphFolder>(
+      `/me/mailFolders/${encodeURIComponent(id)}?$select=id,displayName,totalItemCount`,
+      { signal },
+    );
+    await this.request<GraphPage>(
+      `/me/mailFolders/${encodeURIComponent(id)}/messages?$top=1&$select=id,subject`,
+      { signal },
+    );
+    return {
+      accessible: Boolean(folderInfo?.id),
+      messageCount:
+        typeof folderInfo?.totalItemCount === "number" && Number.isFinite(folderInfo.totalItemCount)
+          ? folderInfo.totalItemCount
+          : null,
     };
   }
 

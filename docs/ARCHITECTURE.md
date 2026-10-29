@@ -63,11 +63,13 @@ Rejected for the MVP: React/Next (unnecessary runtime), Express/Fastify (tiny ro
 | `src/core/scan.ts`             | Paginated, read-only aggregation; action/folder validation      |
 | `src/core/plan.ts`             | Plan hash, TTL store, review token, execution gate              |
 | `src/core/executor.ts`         | Per-message revalidation, bounded execution, outcomes           |
+| `src/core/connection-check.ts` | Read-only folder/metadata provider readiness check              |
 | `src/core/batch.ts`            | Chunking, token bucket, bounded-concurrency helper              |
 | `src/diagnostics/*`            | DNS adapter and pure SPF/DMARC/DKIM analysis                    |
 | `src/providers/provider.ts`    | `MailProvider` interface and folder types                       |
 | `src/providers/oauth.ts`       | Google/Microsoft authorization-code + PKCE clients              |
 | `src/providers/token-store.ts` | Memory-only connection/token map                                |
+| `src/providers/scopes.ts`      | Granted-scope parsing and required-scope diagnostics            |
 | `src/providers/manager.ts`     | OAuth state, refresh, status, adapter construction              |
 | `src/providers/gmail.ts`       | Gmail REST metadata/mutations and capability enforcement        |
 | `src/providers/microsoft.ts`   | Graph metadata/mutations, folder mapping, pagination validation |
@@ -95,6 +97,10 @@ Rejected for the MVP: React/Next (unnecessary runtime), Express/Fastify (tiny ro
 There is no arbitrary URL fetch, no recursion through SPF includes, and no DKIM selector guessing.
 
 ## Cleanup lifecycle
+
+### 0. Connection check (read-only)
+
+`POST /api/providers/:provider/check` calls `checkProviderConnection`, which uses `MailProvider.probeFolder` for each tracked folder. Gmail performs a one-item list plus a metadata read when that message exists; Graph reads folder metadata/count and one message header. Failures are reported per folder. The check never calls a mutation method, never downloads bodies, and does not consume a cleanup plan.
 
 ### 1. Scan (read-only)
 
@@ -166,6 +172,7 @@ interface MailProvider {
   account: string | null;
   capabilities: ProviderCapabilities;
   mode: "readonly" | "cleanup";
+  probeFolder(folder, signal): Promise<FolderProbeResult>;
   listMessages(folder, pageToken, signal): Promise<ProviderPage>;
   getMessage(id, signal): Promise<MessageMetadata | null>;
   archive(id, signal): Promise<void>;
@@ -176,7 +183,7 @@ interface MailProvider {
 
 Rules:
 
-- `listMessages` and `getMessage` must never mutate.
+- `probeFolder`, `listMessages`, and `getMessage` must never mutate.
 - Adapters refuse mutations when `mode === "readonly"`, independently of the UI.
 - Unsupported operations throw rather than approximating with a different operation.
 - Provider failures map to `ProviderError` with `code`, `status`, `retryable`, `ambiguous`, `notFound`, and optional `retryAfterMs`.
@@ -199,7 +206,9 @@ Capabilities are declared in `src/core/capabilities.ts` and shown in the UI. Not
 - PKCE verifier/challenge use S256.
 - Google tokens come from `oauth2.googleapis.com`; Graph tokens from `login.microsoftonline.com/{tenant}/oauth2/v2.0/token`.
 - Refresh happens server-side with a per-connection lock. Failure deletes the connection and requires reconnection.
-- Tokens never appear in provider status responses, the browser bundle, logs, or error messages.
+- Tokens never appear in provider status responses, the browser bundle, logs, or error messages. Granted scope names are shown; they are not secrets.
+- The read-only connection check exercises folder visibility and metadata access only; it is never used to test mutations.
+- A scope warning is shown when the provider reports non-empty granted scopes that omit the required read or cleanup scope.
 - Account identity: Gmail profile API (read scope); Microsoft `id_token` decoded for display only (received directly from the token endpoint over TLS).
 
 Read-only vs cleanup mode is chosen before authorization. A read-only connection cannot execute changes; the user must reconnect with the additional scope.
@@ -216,6 +225,7 @@ All routes are same-origin; no CORS. Mutations require `x-csrf-token`.
 | POST   | `/api/diagnostics`               | Run bounded MX/TXT diagnostics                                         |
 | POST   | `/api/auth/:provider/start`      | Create OAuth authorize URL (mode: readonly/cleanup)                    |
 | POST   | `/api/auth/:provider/disconnect` | Delete local tokens                                                    |
+| POST   | `/api/providers/:provider/check` | Read-only folder/metadata readiness check                              |
 | GET    | `/auth/:provider/callback`       | OAuth authorization-code callback                                      |
 | POST   | `/api/cleanup/scan`              | Read-only scan → preview plan                                          |
 | POST   | `/api/cleanup/execute`           | Gate + start dry-run/execute job (HTTP 202)                            |

@@ -9,6 +9,7 @@ import { PlanStore, assertExecutionAllowed, type StoredPlan } from "../core/plan
 import { scanMailbox } from "../core/scan.js";
 import { executeCleanup } from "../core/executor.js";
 import { runDiagnostics } from "../diagnostics/index.js";
+import { checkProviderConnection } from "../core/connection-check.js";
 import type { AppConfig } from "../core/config.js";
 import { AppError } from "../core/errors.js";
 import type {
@@ -327,6 +328,42 @@ export class MailSentryApp {
         sendJson(res, 405, { error: { code: "METHOD", message: "Method not allowed." } });
         return true;
       }
+    }
+
+    const providerCheckRoute = /^\/api\/providers\/(gmail|microsoft)\/check$/.exec(pathname);
+    if (providerCheckRoute) {
+      if (method !== "POST") {
+        sendJson(res, 405, { error: { code: "METHOD", message: "Method not allowed." } });
+        return true;
+      }
+      const providerId = parseProvider(providerCheckRoute[1]);
+      const session = this.requireSession(req, res);
+      this.assertCsrf(req, session);
+      const provider = await this.providers
+        .getProvider(session.id, providerId, { needWrite: false })
+        .catch(this.handleProviderError);
+
+      const abort = new AbortController();
+      res.on("close", () => {
+        if (!res.writableEnded) abort.abort();
+      });
+      let result: Awaited<ReturnType<typeof checkProviderConnection>>;
+      try {
+        result = await checkProviderConnection(provider, { signal: abort.signal });
+      } catch (error) {
+        if (abort.signal.aborted) {
+          throw new AppError("CANCELLED", "The connection check was cancelled.", 409);
+        }
+        this.handleProviderError(error);
+      }
+      log.info("provider connection check completed", {
+        provider: providerId,
+        ok: result.ok,
+        folders: result.folders.length,
+        mode: result.mode,
+      });
+      sendJson(res, 200, result);
+      return true;
     }
 
     if (pathname === "/api/cleanup/scan" && method === "POST") {

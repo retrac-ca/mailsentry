@@ -17,6 +17,7 @@ import {
 import type { ConnectionStore, ConnectionRecord } from "./token-store.js";
 import type { MailProvider } from "./provider.js";
 import { ProviderError } from "./errors.js";
+import { assessScopes } from "./scopes.js";
 
 interface PendingAuth {
   sessionId: string;
@@ -91,6 +92,9 @@ export class ProviderManager {
   status(sessionId: string): ProviderConnectionStatus[] {
     return (["gmail", "microsoft"] as const).map((provider) => {
       const record = this.connections.get(sessionId, provider);
+      const scopes = record
+        ? assessScopes(provider, record.mode, record.tokens.scope)
+        : { grantedScopes: [], scopeWarning: null };
       return {
         provider,
         displayName: provider === "gmail" ? "Gmail" : "Microsoft 365 / Outlook",
@@ -99,6 +103,8 @@ export class ProviderManager {
         mode: record?.mode ?? null,
         connectedAt: record ? new Date(record.connectedAt).toISOString() : null,
         account: record?.account ?? null,
+        grantedScopes: scopes.grantedScopes,
+        scopeWarning: scopes.scopeWarning,
         capabilities: capabilitiesFor(provider),
         setupHint: this.setupHint(provider),
       };
@@ -211,7 +217,10 @@ export class ProviderManager {
           this.credentials(provider),
           this.scopes(provider, record.mode),
         );
-        const updated: ConnectionRecord = { ...record, tokens };
+        const updated: ConnectionRecord = {
+          ...record,
+          tokens: { ...tokens, scope: tokens.scope || record.tokens.scope },
+        };
         this.connections.set(sessionId, provider, updated);
         return updated;
       } catch {

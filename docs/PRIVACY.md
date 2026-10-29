@@ -12,6 +12,7 @@ Local-first does not mean risk-free: provider APIs still see requests, OAuth ide
 | DNS findings/observations                                     | Server memory                            | Display results                           | Same as above                                       |
 | Provider OAuth access/refresh tokens                          | Server process memory                    | API calls and refresh                     | Until disconnect, server restart, or session expiry |
 | Account email address                                         | Server memory                            | Display connection identity               | Until disconnect/restart                            |
+| Granted OAuth scope names                                     | Server memory + status API               | Permission diagnostics in Settings        | Until disconnect/restart                            |
 | Message IDs, folder, size, dates, subject/from snippet sample | Server memory                            | Preview, revalidation, execution, results | Plan ≤20 min; job summaries up to 20 per session    |
 | Cleanup job results                                           | Server memory                            | Progress/results/Activity                 | Up to 20 jobs per session                           |
 | Session ID + CSRF token                                       | Memory + HttpOnly cookie                 | Authenticate local session / prevent CSRF | Cookie is session-scoped; server TTL 8 h            |
@@ -34,15 +35,15 @@ Local-first does not mean risk-free: provider APIs still see requests, OAuth ide
 
 Nothing external is contacted on page load. Requests occur only when you invoke a feature.
 
-| Destination                                                  | Trigger                           | Information sent                                                                                       | Response used                             |
-| ------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| System DNS resolver (from `/etc/resolv.conf` or OS settings) | Email Health                      | MX/TXT query names for the domain and DKIM selector you enter                                          | MX targets/priorities, TXT records        |
-| `accounts.google.com`                                        | Click **Connect** for Gmail       | OAuth client ID, redirect URI, requested scope, state, PKCE challenge                                  | Authorization code (via browser redirect) |
-| `oauth2.googleapis.com`                                      | Gmail connect or token refresh    | Authorization code + PKCE verifier or refresh token, client ID, optional client secret                 | Access/refresh tokens, scope, expiry      |
-| `gmail.googleapis.com`                                       | Gmail scan/preview/execute        | Bearer access token, message IDs, label filters, requested metadata fields, archive/trash operations   | Message metadata and operation results    |
-| `login.microsoftonline.com`                                  | Microsoft connect or refresh      | Client ID, redirect URI, scope, state, PKCE challenge, code/verifier or refresh token, optional secret | Tokens and identity claims                |
-| `graph.microsoft.com`                                        | Microsoft scan/preview/execute    | Bearer token, folder/message IDs, selected metadata fields, move/permanent-delete operations           | Message metadata and operation results    |
-| `retrac.ca`                                                  | Only if you click the footer link | Standard browser request; no MailSentry data appended                                                  | Public web page                           |
+| Destination                                                  | Trigger                              | Information sent                                                                                       | Response used                             |
+| ------------------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| System DNS resolver (from `/etc/resolv.conf` or OS settings) | Email Health                         | MX/TXT query names for the domain and DKIM selector you enter                                          | MX targets/priorities, TXT records        |
+| `accounts.google.com`                                        | Click **Connect** for Gmail          | OAuth client ID, redirect URI, requested scope, state, PKCE challenge                                  | Authorization code (via browser redirect) |
+| `oauth2.googleapis.com`                                      | Gmail connect or token refresh       | Authorization code + PKCE verifier or refresh token, client ID, optional client secret                 | Access/refresh tokens, scope, expiry      |
+| `gmail.googleapis.com`                                       | Gmail scan/preview/execute/check     | Bearer access token, message IDs, label filters, requested metadata fields, archive/trash operations   | Message metadata and operation results    |
+| `login.microsoftonline.com`                                  | Microsoft connect or refresh         | Client ID, redirect URI, scope, state, PKCE challenge, code/verifier or refresh token, optional secret | Tokens and identity claims                |
+| `graph.microsoft.com`                                        | Microsoft scan/preview/execute/check | Bearer token, folder/message IDs, selected metadata fields, move/permanent-delete operations           | Message metadata and operation results    |
+| `retrac.ca`                                                  | Only if you click the footer link    | Standard browser request; no MailSentry data appended                                                  | Public web page                           |
 
 Provider requests are HTTPS. Redirects are disabled for provider API/token calls. Graph pagination is restricted to `graph.microsoft.com`; Gmail pagination tokens are opaque.
 

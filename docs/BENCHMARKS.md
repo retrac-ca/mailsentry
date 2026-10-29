@@ -6,7 +6,7 @@ MailSentry's memory design is validated with a reproducible synthetic benchmark.
 
 | Item         | Value                                                               |
 | ------------ | ------------------------------------------------------------------- |
-| Date         | 2026-10-28                                                          |
+| Date         | 2026-10-29                                                          |
 | OS           | Ubuntu 26.04 LTS on WSL2 (kernel 6.18.33.2-microsoft-standard-WSL2) |
 | CPU          | AMD Ryzen 7 8700F 8-Core Processor                                  |
 | RAM          | 15.8 GiB                                                            |
@@ -42,21 +42,21 @@ MailSentry's memory design is validated with a reproducible synthetic benchmark.
 
 | Scenario     | Eligible | Processed |      Peak RSS | Heap used |  Elapsed | API calls             | Cancelled |
 | ------------ | -------: | --------: | ------------: | --------: | -------: | --------------------- | --------- |
-| `scan-2k`    |    1,648 |         0 |  **63.4 MiB** |   6.6 MiB |    15 ms | 35 list               | No        |
-| `scan-30k`   |   24,739 |         0 | **126.7 MiB** |  35.4 MiB |   388 ms | 511 list              | No        |
-| `dryrun-20k` |   16,460 |    16,460 | **116.9 MiB** |  29.2 MiB |   197 ms | 340 list + 16,460 get | No        |
-| `cancel-5k`  |    4,096 |       246 |  **69.4 MiB** |   9.3 MiB |   226 ms | 85 list + 249 get     | **Yes**   |
+| `scan-2k`    |    1,648 |         0 |  **63.2 MiB** |   6.6 MiB |    24 ms | 35 list               | No        |
+| `scan-30k`   |   24,739 |         0 | **126.5 MiB** |  35.0 MiB |   784 ms | 511 list              | No        |
+| `dryrun-20k` |   16,460 |    16,460 | **117.2 MiB** |  29.5 MiB |   334 ms | 340 list + 16,460 get | No        |
+| `cancel-5k`  |    4,096 |       240 |  **69.4 MiB** |   9.3 MiB |   250 ms | 85 list + 243 get     | **Yes**   |
 | `rate-300`   |      251 |       251 |  **55.2 MiB** |   6.7 MiB | 1,574 ms | 6 list + 251 get      | No        |
 
 Raw JSON for the latest run is written to `bench/results/latest.json` (ignored by Git) with the environment block and per-scenario data.
 
 ### Interpretation
 
-- **Memory grows sublinearly in surfaced state.** A 15× increase in messages (2k → 30k) raised peak RSS by ~63 MiB (63.5 → 126.3 MiB), most of which is the synthetic in-process mailbox and generated metadata, not retained scan state. Retained application state is one ID/folder per eligible message plus a 100-row sample.
+- **Memory grows sublinearly in surfaced state.** A 15× increase in messages (2k → 30k) raised peak RSS by ~63 MiB (63.2 → 126.5 MiB), most of which is the synthetic in-process mailbox and generated metadata, not retained scan state. Retained application state is one ID/folder per eligible message plus a 100-row sample.
 - **Baseline Node process cost is ~55–63 MiB.** Empty/rate-limited scenarios sit near this baseline.
 - **No unbounded retention observed.** The 30k scan did not hold subjects/senders for all messages; the preview sample remained capped at 100.
 - **Dry-run reads dominate API call count** (one revalidation GET per eligible message). Real provider latency and quotas, not local CPU, would dominate wall time.
-- **Cancellation works under latency.** The 100 ms abort stopped after 243 of 4,096 eligible messages. The provider saw 246 GETs (three in-flight reads beyond the processed count); the executor reported `cancelled=true` and does not claim rollback. In a real mutation run, in-flight operations are reported as uncertain.
+- **Cancellation works under latency.** The 100 ms abort stopped after 240 of 4,096 eligible messages. The provider saw 243 GETs (three in-flight reads beyond the processed count); the executor reported `cancelled=true` and does not claim rollback. In a real mutation run, in-flight operations are reported as uncertain.
 - **Rate limiting restores backpressure.** A 100 req/s 300-message dry run took ~1.57 s with 251 get calls and stayed at baseline memory. This is a pacing check, not a throughput benchmark.
 - **Timing is single-run and CPU-cache sensitive.** Treat millisecond figures as indicative; RSS is the primary metric. No `--expose-gc` was used.
 
@@ -66,7 +66,7 @@ Initial budget for the MVP, based on these measurements:
 
 > **Peak RSS ≤ 200 MiB for a 30,000-message synthetic scan** on a comparable Node 22 environment.
 
-Current measured peak is **126.3 MiB**, leaving ~36% headroom. The budget is intentionally conservative and includes the synthetic mailbox; the real application's retained state is smaller. Exceeding 200 MiB in this benchmark should trigger investigation of page retention, sample growth, or accidental full-mailbox buffering. This budget is not a claim about browser memory or provider-side limits.
+Current measured peak is **126.5 MiB**, leaving ~36% headroom. The budget is intentionally conservative and includes the synthetic mailbox; the real application's retained state is smaller. Exceeding 200 MiB in this benchmark should trigger investigation of page retention, sample growth, or accidental full-mailbox buffering. This budget is not a claim about browser memory or provider-side limits.
 
 ## Reproduction
 

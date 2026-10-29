@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   accountFromIdToken,
@@ -7,7 +10,8 @@ import {
 } from "../../src/providers/oauth.js";
 import { ProviderManager } from "../../src/providers/manager.js";
 import { ConnectionStore } from "../../src/providers/token-store.js";
-import { loadConfig } from "../../src/core/config.js";
+import { assessScopes, hasScope, parseGrantedScopes } from "../../src/providers/scopes.js";
+import { loadConfig, loadDotEnv } from "../../src/core/config.js";
 import { AppError } from "../../src/core/errors.js";
 import { testConfig } from "../helpers/fixtures.js";
 
@@ -60,6 +64,74 @@ describe("OAuth URL construction", () => {
     expect(accountFromIdToken(`header.${payload}.signature`)).toBe("user@example.com");
     expect(accountFromIdToken("not-a-token")).toBeNull();
     expect(accountFromIdToken(null)).toBeNull();
+  });
+});
+
+describe("granted scope reporting", () => {
+  it("parses token scope strings and compares provider URL and short forms", () => {
+    const scopes = parseGrantedScopes("openid profile email https://graph.microsoft.com/Mail.ReadWrite");
+    expect(scopes).toEqual(["openid", "profile", "email", "https://graph.microsoft.com/Mail.ReadWrite"]);
+    expect(hasScope(scopes, "Mail.ReadWrite")).toBe(true);
+    expect(hasScope(scopes, "https://graph.microsoft.com/Mail.Read")).toBe(false);
+    expect(parseGrantedScopes("")).toEqual([]);
+  });
+
+  it("warns only when the provider reports scopes but the required one is missing", () => {
+    const missing = assessScopes("gmail", "cleanup", "https://www.googleapis.com/auth/gmail.readonly");
+    expect(missing.grantedScopes).toHaveLength(1);
+    expect(missing.scopeWarning).toMatch(/gmail\.modify/);
+
+    const unknown = assessScopes("gmail", "cleanup", "");
+    expect(unknown.scopeWarning).toBeNull();
+
+    const ok = assessScopes("microsoft", "cleanup", "profile Mail.ReadWrite");
+    expect(ok.scopeWarning).toBeNull();
+  });
+
+  it("exposes granted scopes in provider status without tokens", () => {
+    const store = new ConnectionStore();
+    const tokens = {
+      accessToken: "SECRET_ACCESS_TOKEN",
+      refreshToken: "SECRET_REFRESH_TOKEN",
+      expiresAt: Date.now() + 60_000,
+      scope: "https://www.googleapis.com/auth/gmail.modify",
+      idToken: null,
+    };
+    store.set("s1", "gmail", {
+      provider: "gmail",
+      mode: "cleanup",
+      account: "user@example.com",
+      connectedAt: Date.now(),
+      connectionId: "conn",
+      tokens,
+    });
+    const manager = new ProviderManager(testConfig(), store);
+    const gmail = manager.status("s1").find((status) => status.provider === "gmail");
+    expect(gmail?.grantedScopes).toEqual(["https://www.googleapis.com/auth/gmail.modify"]);
+    expect(gmail?.scopeWarning).toBeNull();
+    expect(JSON.stringify(gmail)).not.toContain("SECRET_ACCESS_TOKEN");
+    expect(JSON.stringify(gmail)).not.toContain("SECRET_REFRESH_TOKEN");
+  });
+
+  it("warns when a cleanup connection reports only read scopes", () => {
+    const store = new ConnectionStore();
+    store.set("s1", "microsoft", {
+      provider: "microsoft",
+      mode: "cleanup",
+      account: "user@example.com",
+      connectedAt: Date.now(),
+      connectionId: "conn",
+      tokens: {
+        accessToken: "access",
+        refreshToken: "refresh",
+        expiresAt: Date.now() + 60_000,
+        scope: "openid profile Mail.Read",
+        idToken: null,
+      },
+    });
+    const manager = new ProviderManager(testConfig(), store);
+    const microsoft = manager.status("s1").find((status) => status.provider === "microsoft");
+    expect(microsoft?.scopeWarning).toMatch(/Mail\.ReadWrite/);
   });
 });
 
@@ -141,6 +213,23 @@ describe("connection store bounds and deletion", () => {
 });
 
 describe("configuration validation", () => {
+  it("loads .env from the project directory when present", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "mailsentry-env-"));
+    const key = "MAILSENTRY_TEST_DOTENV_VALUE";
+    const previous = process.env[key];
+    delete process.env[key];
+    try {
+      expect(loadDotEnv(dir)).toBeNull();
+      await writeFile(join(dir, ".env"), `${key}=loaded-from-dotenv\n`, "utf8");
+      expect(loadDotEnv(dir)).toBe(join(dir, ".env"));
+      expect(process.env[key]).toBe("loaded-from-dotenv");
+    } finally {
+      delete process.env[key];
+      if (previous !== undefined) process.env[key] = previous;
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses loopback-safe defaults", () => {
     const config = loadConfig({});
     expect(config.host).toBe("127.0.0.1");

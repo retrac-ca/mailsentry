@@ -1,11 +1,13 @@
-import { loadConfig } from "../core/config.js";
+import { loadConfig, loadDotEnv } from "../core/config.js";
 import { createLogger } from "../security/logger.js";
 import { MailSentryApp } from "./app.js";
 
 const log = createLogger("startup");
 
 async function main(): Promise<void> {
+  const envPath = loadDotEnv();
   const config = loadConfig();
+  log.debug("environment loaded", { dotenv: envPath ? ".env present" : ".env not present" });
   const app = new MailSentryApp(config);
   await app.start();
   log.info("MailSentry is running", {

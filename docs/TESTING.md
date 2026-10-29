@@ -20,11 +20,11 @@ Latest reference run (this implementation):
 
 | Check            | Result                               |
 | ---------------- | ------------------------------------ |
-| Tests            | **154 passed / 154** across 10 files |
-| Statements       | 77.93%                               |
-| Branches         | 67.13%                               |
-| Functions        | 84.10%                               |
-| Lines            | 80.24%                               |
+| Tests            | **167 passed / 167** across 11 files |
+| Statements       | 78.70%                               |
+| Branches         | 67.21%                               |
+| Functions        | 85.37%                               |
+| Lines            | 81.02%                               |
 | TypeScript       | Clean (server + browser)             |
 | ESLint           | Clean                                |
 | Prettier         | Clean                                |
@@ -35,24 +35,26 @@ Coverage is intentionally lower in OAuth token exchange/refresh, the provider ma
 
 ## Test map
 
-| File                                | Focus                                                                                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/unit/validation.test.ts`     | Domain normalization/rejection, selector validation, folder/action parsing, filter bounds, action/folder semantics                     |
-| `tests/unit/records.test.ts`        | SPF, DMARC, and DKIM parsers: valid, missing, multiple, malformed, revoked, lookup limits                                              |
-| `tests/unit/diagnostics.test.ts`    | Report orchestration with a fake DNS resolver; query count; NXDOMAIN/timeout/SERVFAIL distinction; null MX; DKIM selector requirement  |
-| `tests/unit/eligibility.test.ts`    | Protection defaults, allowlists/targets, age/size/attachment/bulk filters, drafts, Empty Trash bypass                                  |
-| `tests/unit/plan.test.ts`           | Canonical plan hash, expiry, review token, typed confirmation, capability gate, plan consumption, sample bounds                        |
-| `tests/unit/security.test.ts`       | Batching, concurrency bound, cancellation of queued work, rate limiting, credential redaction, roadmap parsing                         |
-| `tests/unit/providers.test.ts`      | Mocked Gmail/Graph mapping, read-only refusal, Graph pagination-host rejection, HTTP 429 retry, ambiguous mutation policy, 401 mapping |
-| `tests/unit/oauth-config.test.ts`   | PKCE/authorize URL construction, scope selection, unconfigured-provider behavior, token-store deletion, config safety validation       |
-| `tests/integration/cleanup.test.ts` | Full scan → plan → dry-run/execute lifecycle, folder independence, stale/changed messages, failures, uncertainty, cancellation         |
-| `tests/integration/server.test.ts`  | Session cookie, CSRF, Origin, Host/DNS-rebinding, body limits, unconfigured OAuth, plan-required execution, static fallback            |
+| File                                  | Focus                                                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/unit/validation.test.ts`       | Domain normalization/rejection, selector validation, folder/action parsing, filter bounds, action/folder semantics                       |
+| `tests/unit/records.test.ts`          | SPF, DMARC, and DKIM parsers: valid, missing, multiple, malformed, revoked, lookup limits                                                |
+| `tests/unit/diagnostics.test.ts`      | Report orchestration with a fake DNS resolver; query count; NXDOMAIN/timeout/SERVFAIL distinction; null MX; DKIM selector requirement    |
+| `tests/unit/eligibility.test.ts`      | Protection defaults, allowlists/targets, age/size/attachment/bulk filters, drafts, Empty Trash bypass                                    |
+| `tests/unit/plan.test.ts`             | Canonical plan hash, expiry, review token, typed confirmation, capability gate, plan consumption, sample bounds                          |
+| `tests/unit/security.test.ts`         | Batching, concurrency bound, cancellation of queued work, rate limiting, credential redaction, roadmap parsing                           |
+| `tests/unit/providers.test.ts`        | Mocked Gmail/Graph mapping, read-only refusal, Graph pagination-host rejection, HTTP 429 retry, ambiguous mutation policy, 401 mapping   |
+| `tests/unit/oauth-config.test.ts`     | PKCE/authorize URL construction, granted-scope reporting, unconfigured-provider behavior, token-store deletion, config safety validation |
+| `tests/unit/connection-check.test.ts` | Read-only folder/metadata connection check, per-folder failures, unsupported folders, cancellation, no mutations                         |
+| `tests/integration/cleanup.test.ts`   | Full scan → plan → dry-run/execute lifecycle, folder independence, stale/changed messages, failures, uncertainty, cancellation           |
+| `tests/integration/server.test.ts`    | Session cookie, CSRF, Origin, Host/DNS-rebinding, body limits, unconfigured OAuth, plan-required execution, static fallback              |
 
 ## Required safety properties → tests
 
 | Property                                                          | Evidence                                                                                                                  |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Scanning never invokes mutations                                  | `cleanup.test.ts` → “scans paginated messages without any mutation call”; mutation counters remain 0                      |
+| Connection check never invokes mutations                          | `connection-check.test.ts`; folder probes only, mutation counters remain 0                                                |
 | Preview never invokes mutations                                   | The same test plus plan construction; no mutation path is reachable from `scanMailbox`/`PlanStore.create`                 |
 | Dry-run never invokes mutations                                   | “performs revalidation reads but never mutates”; all archive/trash/delete counters 0 and mailbox IDs unchanged            |
 | Inbox cleanup does not affect spam/trash unless selected          | “does not include or modify spam/trash during an inbox scan”                                                              |
@@ -144,3 +146,15 @@ See [BENCHMARKS.md](BENCHMARKS.md). Commands:
 npm run bench
 # results are written to bench/results/latest.json (ignored by Git)
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
+
+- locked install (`npm ci`);
+- typecheck, ESLint, Prettier check;
+- unit and integration tests;
+- production build;
+- `npm audit --audit-level=high`.
+
+The workflow has read-only repository permissions and does not deploy, publish, or access provider credentials. It is not a substitute for live provider verification or an independent security review.

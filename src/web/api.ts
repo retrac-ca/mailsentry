@@ -1,12 +1,14 @@
 import type {
+  ActivityItem,
   AppStatus,
   CleanupJob,
   CleanupPreview,
   DiagnosticReport,
+  ProviderConnectionCheck,
+  ProviderId,
   RoadmapSection,
   ScanRequest,
   ExecuteRequest,
-  ActivityItem,
 } from "../shared/types.js";
 
 export class ApiError extends Error {
@@ -88,6 +90,13 @@ export async function disconnect(provider: "gmail" | "microsoft"): Promise<AppSt
     body: JSON.stringify({}),
   });
   return result.providers;
+}
+
+export async function checkProvider(provider: ProviderId): Promise<ProviderConnectionCheck> {
+  return request<ProviderConnectionCheck>(`/api/providers/${provider}/check`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function scanMailbox(requestBody: ScanRequest, signal?: AbortSignal): Promise<CleanupPreview> {

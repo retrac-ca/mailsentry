@@ -9,10 +9,8 @@ function configuredLevel(): Level {
   return value === "debug" || value === "warn" || value === "error" ? value : "info";
 }
 
-const threshold = LEVEL_ORDER[configuredLevel()];
-
 function emit(level: Level, scope: string, message: string, context?: Record<string, unknown>): void {
-  if (LEVEL_ORDER[level] < threshold) return;
+  if (LEVEL_ORDER[level] < LEVEL_ORDER[configuredLevel()]) return;
   const line = {
     time: new Date().toISOString(),
     level,

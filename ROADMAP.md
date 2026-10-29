@@ -30,6 +30,8 @@ Statuses describe this repository, not intentions. Live provider verification an
 - [x] In-memory credential and session storage; disconnect and restart clearing behavior
 - [x] CSRF, Origin, Host-header, CSP, and loopback protections
 - [x] Credential redaction and metadata-only logging
+- [x] Read-only provider connection check for folder visibility and metadata access
+- [x] Granted OAuth scopes displayed in Settings with a mismatch warning
 - [x] Automated safety tests using synthetic mailboxes and mocked HTTP only
 - [x] Reproducible synthetic memory benchmark across 2k–30k messages, including rate limiting and cancellation
 - [x] Architecture, provider, privacy, security, testing, and benchmark documentation

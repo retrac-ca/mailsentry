@@ -177,17 +177,18 @@ Pagination uses `@odata.nextLink`. MailSentry accepts only HTTPS links on `graph
 
 ## Token lifecycle, storage, and revocation
 
-| Aspect                   | Behavior                                                                   |
-| ------------------------ | -------------------------------------------------------------------------- |
-| Storage                  | Server process memory only, keyed by browser session and provider          |
-| Browser exposure         | Never; tokens are not serialized in API responses or bundles               |
-| Disk                     | Never written by MailSentry                                                |
-| Access-token expiry      | Refreshed within 30 seconds of expiry using the refresh token              |
-| Refresh failure          | Local connection removed; user must reconnect                              |
-| Disconnect               | Deletes local tokens immediately                                           |
-| Server restart           | All tokens and connections are lost; reconnect required                    |
-| Session idle expiry      | 8 hours; tokens for that session are discarded                             |
-| Provider-side revocation | Must be done at Google/Microsoft; local disconnect cannot revoke the grant |
+| Aspect                   | Behavior                                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| Storage                  | Server process memory only, keyed by browser session and provider                                   |
+| Browser exposure         | Never; tokens are not serialized in API responses or bundles                                        |
+| Disk                     | Never written by MailSentry                                                                         |
+| Access-token expiry      | Refreshed within 30 seconds of expiry using the refresh token                                       |
+| Refresh failure          | Local connection removed; user must reconnect                                                       |
+| Disconnect               | Deletes local tokens immediately                                                                    |
+| Server restart           | All tokens and connections are lost; reconnect required                                             |
+| Session idle expiry      | 8 hours; tokens for that session are discarded                                                      |
+| Granted scopes           | Displayed in Settings; a warning appears if reported scopes omit the required read or cleanup scope |
+| Provider-side revocation | Must be done at Google/Microsoft; local disconnect cannot revoke the grant                          |
 
 Google revocation: <https://myaccount.google.com/permissions>  
 Microsoft: account security / **Privacy** → **Apps and services that can access your data** (wording varies by account type).
@@ -206,7 +207,8 @@ npm test
 
 Relevant suites:
 
-- `tests/unit/providers.test.ts` — mocked Gmail/Graph transport, field mapping, pagination host validation, read-only refusal, HTTP retry/error policy.
+- `tests/unit/providers.test.ts` — mocked Gmail/Graph transport, field mapping, pagination host validation, folder probes, read-only refusal, HTTP retry/error policy.
+- `tests/unit/connection-check.test.ts` — read-only folder/metadata connection check and per-folder failures.
 - `tests/integration/cleanup.test.ts` — complete cleanup lifecycle using `SyntheticProvider`, including mutation-count assertions.
 - `tests/unit/plan.test.ts` — plan hash/token/confirmation gates.
 - `tests/integration/server.test.ts` — session, CSRF, Origin/Host checks, unconfigured OAuth behavior.
@@ -215,21 +217,24 @@ The synthetic provider is never registered in the running application, so the UI
 
 ## Manual live-verification checklist
 
-Use a dedicated test mailbox and non-sensitive data.
+Use a dedicated test mailbox and non-sensitive data. Follow the detailed, evidence-based checklist in [LIVE-VERIFICATION.md](LIVE-VERIFICATION.md).
+
+At minimum:
 
 1. Configure OAuth and connect in **read-only** mode.
-2. Confirm the account address and requested scopes are as expected.
-3. Scan each folder separately and confirm counts match the provider UI.
-4. Confirm no mutation occurs (provider audit/log or mailbox state).
-5. Run a dry run and confirm no mutation.
-6. Reconnect with cleanup access.
-7. Create a few synthetic older messages; archive one batch and verify folder location.
-8. Move one batch to Trash and verify.
-9. For Microsoft only, test permanent delete and Empty Trash with disposable messages and the typed phrase.
-10. Disconnect and confirm the API reports no connection; restart and confirm reconnection is required.
-11. Revoke the grant at the provider and confirm a stale session cannot operate.
+2. Confirm the account address and granted scopes in Settings.
+3. Run **Check read-only connection**; confirm all tracked folders are readable.
+4. Scan each folder separately and confirm counts match the provider UI.
+5. Confirm no mutation occurs (provider audit/log or mailbox state).
+6. Run a dry run and confirm no mutation.
+7. Reconnect with cleanup access.
+8. Create a few test messages; archive one batch and verify folder location.
+9. Move one batch to Trash and verify.
+10. For Microsoft only, test permanent delete and Empty Trash with disposable messages and the typed phrase.
+11. Disconnect and confirm the API reports no connection; restart and confirm reconnection is required.
+12. Revoke the grant at the provider and confirm a stale session cannot operate.
 
-Record what was verified in the pull request or release notes. Do not claim live verification for a provider you have not tested.
+Record what was verified in the pull request or release notes. Do not claim live verification for a provider you have not tested; sanitize all evidence.
 
 ## Troubleshooting
 

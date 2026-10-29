@@ -237,8 +237,30 @@ export interface ProviderConnectionStatus {
   mode: AuthMode | null;
   connectedAt: string | null;
   account: string | null;
+  grantedScopes: string[];
+  scopeWarning: string | null;
   capabilities: ProviderCapabilities;
   setupHint: string;
+}
+
+export interface ProviderFolderProbe {
+  folder: FolderKind;
+  displayName: string;
+  accessible: boolean;
+  messageCount: number | null;
+  error: string | null;
+}
+
+export interface ProviderConnectionCheck {
+  provider: ProviderId;
+  displayName: string;
+  account: string | null;
+  mode: AuthMode;
+  checkedAt: string;
+  ok: boolean;
+  folders: ProviderFolderProbe[];
+  warnings: string[];
+  limitations: string[];
 }
 
 export interface AppStatus {

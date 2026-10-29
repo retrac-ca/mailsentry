@@ -1063,6 +1063,15 @@ dialog h2 {
   overflow-wrap: anywhere;
 }
 
+.scope-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.scope-list li {
+  margin-top: 0.2rem;
+}
+
 .spinner {
   display: inline-block;
   width: 0.9rem;

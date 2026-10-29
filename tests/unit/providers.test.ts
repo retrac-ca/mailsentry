@@ -75,6 +75,27 @@ describe("Gmail adapter (mocked transport)", () => {
     expect(headers?.["Authorization"]).toBe("Bearer test-token");
   });
 
+  it("probes folder access with a minimal list request", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/messages?")) return jsonResponse({ messages: [] });
+      return jsonResponse({ error: { message: "unexpected" } }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new GmailProvider({
+      accessToken: async () => "token",
+      mode: "readonly",
+      account: null,
+      limiter: new RateLimiter(1000, 1000),
+    });
+    const result = await provider.probeFolder("spam");
+    expect(result).toEqual({ accessible: true, messageCount: null });
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain("labelIds=SPAM");
+    expect(url).toContain("maxResults=1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses mutations in read-only mode without calling the network", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -215,6 +236,31 @@ describe("Microsoft Graph adapter (mocked transport)", () => {
       limiter: new RateLimiter(1000, 1000),
     });
     await expect(provider.permanentlyDelete("g1")).rejects.toThrow(/read-only/i);
+  });
+
+  it("probes folder access and reports the provider's item count", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/me/mailFolders/inbox?")) return jsonResponse({ id: "inbox-id" });
+        if (url.includes("/me/mailFolders/inbox-id/messages?")) {
+          return jsonResponse({ value: [] });
+        }
+        if (url.includes("/me/mailFolders/inbox-id?")) {
+          return jsonResponse({ id: "inbox-id", displayName: "Inbox", totalItemCount: 7 });
+        }
+        return jsonResponse({ error: { message: "unexpected" } }, 500);
+      }),
+    );
+    const provider = new MicrosoftProvider({
+      accessToken: async () => "token",
+      mode: "readonly",
+      account: null,
+      limiter: new RateLimiter(1000, 1000),
+    });
+    const result = await provider.probeFolder("inbox");
+    expect(result).toEqual({ accessible: true, messageCount: 7 });
   });
 });
 

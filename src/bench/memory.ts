@@ -165,6 +165,14 @@ class PacedProvider implements MailProvider {
     this.capabilities = delegate.capabilities ?? capabilitiesFor(delegate.id);
   }
 
+  async probeFolder(
+    folder: FolderKind,
+    signal?: AbortSignal,
+  ): Promise<{ accessible: boolean; messageCount: number | null }> {
+    await this.limiter.acquire(signal);
+    return this.delegate.probeFolder(folder, signal);
+  }
+
   async listMessages(
     folder: FolderKind,
     pageToken: string | null,

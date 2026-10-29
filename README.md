@@ -48,6 +48,7 @@ Every finding reports severity, what was checked, what was observed, why it matt
 - Independently select **Inbox**, **Spam/Junk**, and **Trash/Deleted Items** — nothing is selected by default.
 - Configure age, message size, newsletter/bulk heuristic, targeted senders, and never-clean allowlists. Starred, unread, and important messages are protected unless explicitly included.
 - **Scan** and **preview** are strictly read-only and metadata-only. Full bodies and attachments are never downloaded.
+- **Check read-only connection** verifies account identity, folder visibility, and basic metadata access without changing anything.
 - Review counts, per-folder totals, size estimates, uncertain classifications, provider limitations, and a bounded message sample.
 - **Dry-run** revalidates every message without changing anything.
 - **Execute** requires the reviewed server-side plan, revalidates each message, works in bounded batches, and reports partial failures and uncertain outcomes honestly.
@@ -85,9 +86,9 @@ Every finding reports severity, what was checked, what was observed, why it matt
 | Gmail                   | Implemented (PKCE) | Yes, metadata only | Yes                           | Yes   | **Disabled** (needs full mailbox scope) | **Disabled**             | No — requires your Google OAuth client |
 | Microsoft 365 / Outlook | Implemented (PKCE) | Yes, metadata only | Yes (requires Archive folder) | Yes   | Yes (typed confirmation)                | Yes (typed confirmation) | No — requires your Entra ID app        |
 
-The app models these capabilities explicitly in `src/core/capabilities.ts` and disables unsupported or unsafe operations in both the UI and the server.
+The app models these capabilities explicitly in `src/core/capabilities.ts` and disables unsupported or unsafe operations in both the UI and the server. Settings shows the scopes the provider actually granted, not only the scopes requested.
 
-Live verification requires your own OAuth application registration. See [docs/PROVIDERS.md](docs/PROVIDERS.md).
+Live verification requires your own OAuth application registration. See [docs/PROVIDERS.md](docs/PROVIDERS.md) for setup and [docs/LIVE-VERIFICATION.md](docs/LIVE-VERIFICATION.md) for the evidence checklist before calling a provider verified.
 
 ---
 
@@ -142,7 +143,7 @@ The CLI performs a fixed set of public DNS lookups. It does not send mail or cha
 
 ## Configuration
 
-Copy `.env.example` to `.env`. `.env` is ignored by Git.
+Copy `.env.example` to `.env`. `.env` is ignored by Git and is loaded automatically when the server starts; values already present in the process environment take precedence.
 
 | Variable                  | Required      | Purpose                                                                                                                |
 | ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -170,6 +171,7 @@ Short version:
 2. **Google:** create an OAuth 2.0 Web application client; add `http://127.0.0.1:4310/auth/gmail/callback`; set `GOOGLE_CLIENT_ID`.
 3. **Microsoft:** create an Entra ID app registration; add `http://127.0.0.1:4310/auth/microsoft/callback`; enable public client flows if using PKCE without a secret; set `MICROSOFT_CLIENT_ID`.
 4. Restart MailSentry and connect from **Settings** or **Mailbox Cleanup**.
+5. Use **Check read-only connection** in Settings and follow [docs/LIVE-VERIFICATION.md](docs/LIVE-VERIFICATION.md) before attempting cleanup.
 
 Scopes requested:
 
@@ -266,10 +268,10 @@ Latest reference run on Node 22.23.2 / AMD Ryzen 7 8700F:
 
 | Scenario             | Messages | Eligible/processed |  Peak RSS |  Elapsed |
 | -------------------- | -------: | -----------------: | --------: | -------: |
-| Scan + preview       |    2,000 |              1,648 |  63.4 MiB |    15 ms |
-| Scan + preview       |   30,000 |             24,739 | 126.7 MiB |   388 ms |
-| Scan + dry run       |   20,000 |             16,460 | 116.9 MiB |   197 ms |
-| Cancelled dry run    |    5,000 |       246 of 4,096 |  69.4 MiB |   226 ms |
+| Scan + preview       |    2,000 |              1,648 |  63.2 MiB |    24 ms |
+| Scan + preview       |   30,000 |             24,739 | 126.5 MiB |   784 ms |
+| Scan + dry run       |   20,000 |             16,460 | 117.2 MiB |   334 ms |
+| Cancelled dry run    |    5,000 |       240 of 4,096 |  69.4 MiB |   250 ms |
 | Rate-limited dry run |      300 |                251 |  55.2 MiB | 1,574 ms |
 
 The synthetic fixture itself holds the whole mailbox in memory, so these peaks are conservative relative to the real app, which holds only one page at a time. They are not claims about provider network latency or production throughput.
@@ -297,7 +299,7 @@ MailSentry is local-first, not magic: whoever controls the local machine or the 
 ## Testing and validation
 
 ```bash
-npm test              # 154 unit + integration tests
+npm test              # 167 unit + integration tests
 npm run test:coverage # V8 coverage
 npm run typecheck     # server and browser
 npm run lint          # ESLint
@@ -320,6 +322,8 @@ Safety tests assert, among other things:
 - large scans retain a bounded sample, not full mailbox metadata.
 
 Tests use only synthetic data and mocked HTTP. There is no test that connects to a real mailbox. See [docs/TESTING.md](docs/TESTING.md).
+
+GitHub Actions runs typecheck, lint, formatting, tests, build, and dependency audit on every push and pull request; the workflow is in `.github/workflows/ci.yml`.
 
 ---
 

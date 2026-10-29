@@ -13,9 +13,14 @@ export interface ProviderPage {
   nextPageToken: string | null;
 }
 
+export interface FolderProbeResult {
+  accessible: boolean;
+  messageCount: number | null;
+}
+
 /**
  * Common mailbox interface. Implementations must:
- * - never mutate during list/get;
+ * - never mutate during list/get/probe;
  * - report capability gaps rather than emulating unsafe operations;
  * - map provider errors to ProviderError so outcomes are classified correctly.
  */
@@ -25,6 +30,8 @@ export interface MailProvider {
   readonly capabilities: ProviderCapabilities;
   readonly mode: "readonly" | "cleanup";
 
+  /** Read-only folder access check used before a cleanup scan. */
+  probeFolder(folder: FolderKind, signal?: AbortSignal): Promise<FolderProbeResult>;
   listMessages(folder: FolderKind, pageToken: string | null, signal?: AbortSignal): Promise<ProviderPage>;
   getMessage(id: string, signal?: AbortSignal): Promise<MessageMetadata | null>;
 

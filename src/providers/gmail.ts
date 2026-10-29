@@ -10,7 +10,7 @@ import type {
 import { ProviderError } from "./errors.js";
 import { decodeHeaderValue, truncate } from "./headers.js";
 import { parseJson, providerRequest, type ProviderResponse } from "./http.js";
-import type { MailProvider, ProviderPage } from "./provider.js";
+import type { MailProvider, ProviderPage, FolderProbeResult } from "./provider.js";
 import { RateLimiter } from "../core/batch.js";
 
 const API = "https://gmail.googleapis.com/gmail/v1";
@@ -159,6 +159,24 @@ export class GmailProvider implements MailProvider {
       { signal },
     );
     return message ? toMetadata(message) : null;
+  }
+
+  async probeFolder(folder: FolderKind, signal?: AbortSignal): Promise<FolderProbeResult> {
+    const query = new URLSearchParams({
+      labelIds: LABEL_FOR_FOLDER[folder],
+      maxResults: "1",
+      fields: "messages/id",
+    });
+    const page = await this.request<GmailList>(`/users/me/messages?${query.toString()}`, { signal });
+    const firstId = page?.messages?.find((entry) => entry.id)?.id;
+    if (firstId) {
+      try {
+        await this.fetchMetadata(firstId, signal);
+      } catch (error) {
+        if (!(error instanceof ProviderError && error.notFound)) throw error;
+      }
+    }
+    return { accessible: true, messageCount: null };
   }
 
   async listMessages(

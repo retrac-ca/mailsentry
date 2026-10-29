@@ -8,7 +8,7 @@ import type {
 } from "../shared/types.js";
 import { capabilitiesFor } from "../core/capabilities.js";
 import { ProviderError } from "./errors.js";
-import type { MailProvider, ProviderPage } from "./provider.js";
+import type { MailProvider, ProviderPage, FolderProbeResult } from "./provider.js";
 
 /**
  * Synthetic provider used exclusively by tests and the memory benchmark.
@@ -124,6 +124,13 @@ export class SyntheticProvider implements MailProvider {
       };
       signal?.addEventListener("abort", onAbort, { once: true });
     });
+  }
+
+  async probeFolder(folder: FolderKind, signal?: AbortSignal): Promise<FolderProbeResult> {
+    await this.pace(this.latencyMs, signal);
+    this.maybeFail("list");
+    const count = [...this.mailbox.values()].filter((message) => message.folder === folder).length;
+    return { accessible: true, messageCount: count };
   }
 
   async listMessages(

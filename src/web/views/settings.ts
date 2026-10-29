@@ -1,5 +1,5 @@
-import type { ProviderConnectionStatus } from "../../shared/types.js";
-import { ApiError, disconnect, startAuth } from "../api.js";
+import type { ProviderConnectionCheck, ProviderConnectionStatus } from "../../shared/types.js";
+import { ApiError, checkProvider, disconnect, startAuth } from "../api.js";
 import type { AppContext, View } from "../context.js";
 import { alertBox, badge, clear, h } from "../dom.js";
 import { formatDate } from "../format.js";
@@ -21,6 +21,136 @@ function scopeList(provider: ProviderConnectionStatus): HTMLElement {
       class: "hint",
       text: "Read-only authorizes listing and metadata reads. Cleanup adds permission to archive, move, or delete messages, depending on provider support. Only request cleanup access when you intend to execute changes.",
     }),
+  ]);
+}
+
+function grantedScopesNode(provider: ProviderConnectionStatus): HTMLElement {
+  if (provider.grantedScopes.length === 0) {
+    return h("span", {
+      class: "muted",
+      text: "The provider did not report granted scopes for this token.",
+    });
+  }
+  return h(
+    "ul",
+    { class: "scope-list small" },
+    provider.grantedScopes.map((scope) => h("li", {}, [h("code", { class: "scope", text: scope })])),
+  );
+}
+
+function connectionCheckResult(result: ProviderConnectionCheck): HTMLElement {
+  const failed = result.folders.filter((folder) => !folder.accessible);
+  return h("div", { class: "stack" }, [
+    alertBox(
+      result.ok ? "success" : "warning",
+      result.ok ? "Read-only connection check passed" : "Connection check found problems",
+      [
+        h("p", {
+          text: result.ok
+            ? "All tracked folders were readable. No messages were changed by this check."
+            : `${failed.length} folder(s) could not be read. Nothing was changed. Review the details below or reconnect.`,
+        }),
+      ],
+    ),
+    h("dl", { class: "kv" }, [
+      h("dt", { text: "Account" }),
+      h("dd", { text: result.account ?? "Account identity unavailable" }),
+      h("dt", { text: "Access" }),
+      h("dd", { text: result.mode === "cleanup" ? "Read and cleanup operations" : "Read-only" }),
+      h("dt", { text: "Checked" }),
+      h("dd", { text: formatDate(result.checkedAt) }),
+    ]),
+    h("div", { class: "table-wrap" }, [
+      h("table", {}, [
+        h("caption", { text: "Folder access" }),
+        h("thead", {}, [
+          h("tr", {}, [
+            h("th", { scope: "col", text: "Folder" }),
+            h("th", { scope: "col", text: "Result" }),
+            h("th", { scope: "col", text: "Provider count" }),
+            h("th", { scope: "col", text: "Detail" }),
+          ]),
+        ]),
+        h(
+          "tbody",
+          {},
+          result.folders.map((folder) =>
+            h("tr", {}, [
+              h("td", { text: folder.displayName }),
+              h("td", {}, [
+                badge(folder.accessible ? "Readable" : "Failed", folder.accessible ? "pass" : "failed"),
+              ]),
+              h("td", {
+                text:
+                  folder.messageCount === null
+                    ? "Not reported"
+                    : new Intl.NumberFormat().format(folder.messageCount),
+              }),
+              h("td", { class: "wrap", text: folder.error ?? "—" }),
+            ]),
+          ),
+        ),
+      ]),
+    ]),
+    h(
+      "ul",
+      { class: "small" },
+      result.warnings.map((warning) => h("li", { text: warning })),
+    ),
+    h("details", {}, [
+      h("summary", { text: "Check limitations" }),
+      h(
+        "ul",
+        { class: "small" },
+        result.limitations.map((limitation) => h("li", { text: limitation })),
+      ),
+    ]),
+  ]);
+}
+
+function connectionCheckPanel(provider: ProviderConnectionStatus): HTMLElement {
+  const resultSlot = h("div", { "aria-live": "polite" });
+  const button = h("button", {
+    class: "btn btn-small",
+    type: "button",
+    text: "Check read-only connection",
+    on: {
+      click: () => {
+        button.disabled = true;
+        button.textContent = "Checking folder access…";
+        clear(resultSlot);
+        void checkProvider(provider.provider)
+          .then((result) => {
+            resultSlot.append(connectionCheckResult(result));
+          })
+          .catch((error: unknown) => {
+            clear(resultSlot);
+            resultSlot.append(
+              alertBox("danger", "Connection check failed", [
+                h("p", {
+                  text:
+                    error instanceof ApiError
+                      ? error.message
+                      : "The local server could not complete the connection check.",
+                }),
+              ]),
+            );
+          })
+          .finally(() => {
+            button.disabled = false;
+            button.textContent = "Check read-only connection";
+          });
+      },
+    },
+  });
+
+  return h("div", { class: "stack" }, [
+    h("div", { class: "btn-row" }, [button]),
+    h("p", {
+      class: "hint",
+      text: "Reads folder access and basic mailbox metadata only. It never archives, trashes, deletes, or downloads message bodies.",
+    }),
+    resultSlot,
   ]);
 }
 
@@ -125,6 +255,8 @@ export const renderSettings: View = (root, context) => {
             h("dd", {
               text: "Encrypted-in-transit OAuth tokens held in local server memory only. Not written to disk or exposed to the browser.",
             }),
+            h("dt", { text: "Granted scopes" }),
+            h("dd", {}, [grantedScopesNode(provider)]),
           ])
         : h("p", {
             class: "muted",
@@ -132,6 +264,11 @@ export const renderSettings: View = (root, context) => {
               ? "No account is connected. Connecting opens the provider's own sign-in page."
               : provider.setupHint,
           }),
+      provider.scopeWarning
+        ? alertBox("warning", "Reported permissions may be incomplete", [
+            h("p", { text: provider.scopeWarning }),
+          ])
+        : null,
       h(
         "div",
         { class: "provider-actions" },
@@ -140,6 +277,7 @@ export const renderSettings: View = (root, context) => {
           errorSlot.append(alertBox("danger", "Connection action failed", [h("p", { text: message })]));
         }),
       ),
+      provider.connected ? connectionCheckPanel(provider) : null,
       scopeList(provider),
     ]);
   });

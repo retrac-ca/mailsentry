@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { loadEnvFile } from "node:process";
 import { AppError } from "./errors.js";
 
 export interface OAuthAppConfig {
@@ -37,6 +40,26 @@ function parsePort(value: string | null): number {
     throw new AppError("VALIDATION", "PORT must be an integer between 1 and 65535.", 500);
   }
   return port;
+}
+
+/**
+ * Load `.env` from the project directory when present. Values already present
+ * in the process environment take precedence (Node's loadEnvFile behavior).
+ * Returns the loaded path, or null when no file exists.
+ */
+export function loadDotEnv(rootDir = process.cwd()): string | null {
+  const path = resolve(rootDir, ".env");
+  if (!existsSync(path)) return null;
+  try {
+    loadEnvFile(path);
+    return path;
+  } catch (error) {
+    throw new AppError(
+      "VALIDATION",
+      `.env could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+      500,
+    );
+  }
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
