@@ -329,11 +329,13 @@ export class MailSentryApp {
         this.assertCsrf(req, session);
         const body = asRecord(await readJsonBody(req));
         const mode = parseAuthMode(body["mode"]);
-        const { authorizeUrl } = this.providers.beginAuth(session.id, provider, mode);
+        const { authorizeUrl, state } = this.providers.beginAuth(session.id, provider, mode);
         if (this.hooks.openExternal) {
           try {
             await this.hooks.openExternal(authorizeUrl);
           } catch (error) {
+            // The browser was never opened; invalidate this request immediately.
+            this.providers.cancelAuth(provider, state);
             log.warn("could not open authorization in system browser", { provider, error });
             throw new AppError(
               "PROVIDER_ERROR",

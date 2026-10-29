@@ -89,8 +89,27 @@ describe("credential redaction", () => {
     expect(headers["Authorization"]).toBe("[REDACTED]");
   });
 
+  it("redacts OAuth state and PKCE verifier values in strings and objects", () => {
+    const stringValue = redactString("state=secret-state&code_verifier=secret-verifier");
+    expect(stringValue).not.toContain("secret-state");
+    expect(stringValue).not.toContain("secret-verifier");
+    expect(stringValue).toContain("[REDACTED]");
+
+    const value = redactValue({
+      state: "object-state",
+      code_verifier: "object-verifier",
+      nested: { codeVerifier: "nested-verifier" },
+    }) as Record<string, unknown>;
+    expect(value["state"]).toBe("[REDACTED]");
+    expect(value["code_verifier"]).toBe("[REDACTED]");
+    expect((value["nested"] as Record<string, unknown>)["codeVerifier"]).toBe("[REDACTED]");
+  });
+
   it("redacts error messages", () => {
     expect(safeErrorMessage(new Error("failed with access_token=leaked"))).toContain("[REDACTED]");
+    expect(safeErrorMessage(new Error("state=leaked-state&code_verifier=leaked-verifier"))).not.toContain(
+      "leaked-state",
+    );
   });
 
   it("never writes raw credentials to structured logs", () => {
@@ -104,6 +123,8 @@ describe("credential redaction", () => {
       log.error("auth event", {
         accessToken: "secret-access-token",
         refreshToken: "secret-refresh-token",
+        state: "secret-state",
+        code_verifier: "secret-verifier",
         note: "Bearer abcdefghijklmnop",
       });
     } finally {
@@ -113,6 +134,8 @@ describe("credential redaction", () => {
     expect(output).toContain("[REDACTED]");
     expect(output).not.toContain("secret-access-token");
     expect(output).not.toContain("secret-refresh-token");
+    expect(output).not.toContain("secret-state");
+    expect(output).not.toContain("secret-verifier");
     expect(output).not.toContain("abcdefghijklmnop");
   });
 });

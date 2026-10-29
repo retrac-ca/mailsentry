@@ -186,10 +186,10 @@ Copy `.env.example` to `.env`. `.env` is ignored by Git and is loaded automatica
 | `MAILSENTRY_HOST`         | No            | Bind address. Default `127.0.0.1`; non-loopback requires explicit opt-in.                                              |
 | `MAILSENTRY_BASE_URL`     | No            | Public base URL used for OAuth redirects. Default `http://127.0.0.1:${PORT}`. Origin only; its port must match `PORT`. |
 | `MAILSENTRY_LOG_LEVEL`    | No            | `debug`, `info`, `warn`, or `error`. Default `info`.                                                                   |
-| `GOOGLE_CLIENT_ID`        | For Gmail     | Google OAuth web client ID.                                                                                            |
-| `GOOGLE_CLIENT_SECRET`    | No            | Optional server-side secret for the Google client.                                                                     |
+| `GOOGLE_CLIENT_ID`        | For Gmail     | Google **Desktop app** OAuth client ID.                                                                                |
+| `GOOGLE_CLIENT_SECRET`    | For Gmail     | Google **Desktop app** client secret; Google issues one for this client type.                                          |
 | `MICROSOFT_CLIENT_ID`     | For Microsoft | Entra ID application (client) ID.                                                                                      |
-| `MICROSOFT_CLIENT_SECRET` | No            | Optional server-side secret; public-client PKCE also works.                                                            |
+| `MICROSOFT_CLIENT_SECRET` | No            | Optional; leave blank for a **Mobile and desktop applications** public client.                                         |
 | `MICROSOFT_TENANT_ID`     | No            | `common` (default), `organizations`, `consumers`, or a tenant ID.                                                      |
 
 There is no credential persistence setting because credential persistence is intentionally not implemented.
@@ -203,8 +203,8 @@ Full step-by-step instructions, scopes, redirect URIs, and troubleshooting are i
 Short version:
 
 1. Set `MAILSENTRY_BASE_URL` to the exact origin you use, e.g. `http://127.0.0.1:4310`. Do not include a path, and keep its port equal to `PORT`. The desktop app requires exactly `http://127.0.0.1:4310`.
-2. **Google:** create an OAuth 2.0 Web application client; add `http://127.0.0.1:4310/auth/gmail/callback`; set `GOOGLE_CLIENT_ID`.
-3. **Microsoft:** create an Entra ID app registration; add `http://127.0.0.1:4310/auth/microsoft/callback`; enable public client flows if using PKCE without a secret; set `MICROSOFT_CLIENT_ID`.
+2. **Google:** create an OAuth 2.0 **Desktop app** client; add `http://127.0.0.1:4310/auth/gmail/callback`; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (Google issues a secret for Desktop app clients).
+3. **Microsoft:** create a public-client **Mobile and desktop applications** registration; add `http://127.0.0.1:4310/auth/microsoft/callback`; set `MICROSOFT_CLIENT_ID`. A public-client registration needs no client secret.
 4. Restart MailSentry and connect from **Settings** or **Mailbox Cleanup**.
 5. Use **Check read-only connection** in Settings and follow [docs/LIVE-VERIFICATION.md](docs/LIVE-VERIFICATION.md) before attempting cleanup.
 
@@ -335,7 +335,7 @@ MailSentry is local-first, not magic: whoever controls the local machine or the 
 ## Testing and validation
 
 ```bash
-npm test              # 185 unit + integration tests
+npm test              # 187 unit + integration tests
 npm run test:coverage # V8 coverage
 npm run typecheck     # server and browser
 npm run lint          # ESLint

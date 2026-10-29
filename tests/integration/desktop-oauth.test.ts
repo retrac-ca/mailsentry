@@ -136,4 +136,55 @@ describe("desktop OAuth start and callback", () => {
     expect(replay.status).toBe(400);
     expect(replay.headers.get("content-type")).toContain("text/html");
   });
+
+  it("clears pending state when the system browser fails to open", async () => {
+    let attemptedUrl = "";
+    const failurePort = await freePort();
+    const failureBase = `http://127.0.0.1:${failurePort}`;
+    const failureApp = new MailSentryApp(
+      testConfig({
+        port: failurePort,
+        baseUrl: failureBase,
+        host: "127.0.0.1",
+        google: { clientId: "desktop-test-client", clientSecret: null },
+      }),
+      process.cwd(),
+      {
+        desktopMode: true,
+        openExternal: async (url) => {
+          attemptedUrl = url;
+          throw new Error("No default browser available.");
+        },
+      },
+    );
+    await failureApp.start();
+    try {
+      const statusResponse = await fetch(`${failureBase}/api/status`);
+      const statusBody = (await statusResponse.json()) as { csrfToken: string };
+      const cookie = (statusResponse.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+      const start = await fetch(`${failureBase}/api/auth/gmail/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+          "x-csrf-token": statusBody.csrfToken,
+        },
+        body: JSON.stringify({ mode: "readonly" }),
+      });
+      expect(start.status).toBe(502);
+      const errorBody = (await start.json()) as { error: { code: string; message: string } };
+      expect(errorBody.error.code).toBe("PROVIDER_ERROR");
+      expect(errorBody.error.message).toMatch(/system browser/i);
+
+      const state = new URL(attemptedUrl).searchParams.get("state");
+      expect(state).toBeTruthy();
+      const callback = await fetch(
+        `${failureBase}/auth/gmail/callback?state=${encodeURIComponent(state ?? "")}`,
+      );
+      expect(callback.status).toBe(400);
+      expect(await callback.text()).toMatch(/unknown or expired/i);
+    } finally {
+      await failureApp.stop();
+    }
+  });
 });

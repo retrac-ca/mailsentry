@@ -46,12 +46,12 @@ Scopes:
    - Add your Google account as a **test user** while the app is in testing.
    - Add the scopes listed above. Google may require verification before broad external use; local testing with test users avoids that for the MVP.
 4. Go to **Credentials → Create credentials → OAuth client ID**.
-   - Application type: **Web application**.
+   - Application type: **Desktop app**.
    - Name: e.g. `MailSentry local`.
-   - Authorized redirect URI: exactly
+   - Add the loopback redirect URI:
      `http://127.0.0.1:4310/auth/gmail/callback`
      (replace host/port if `MAILSENTRY_BASE_URL` differs; the scheme, host, port, path, and trailing slash must match).
-5. Copy the client ID into `.env`:
+5. Copy the client ID and client secret into `.env`:
 
    ```dotenv
    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
@@ -59,7 +59,7 @@ Scopes:
    MAILSENTRY_BASE_URL=http://127.0.0.1:4310
    ```
 
-   The client secret is optional for some installed-app flows but is normally required for a Web application client. It stays on the server and is never sent to the browser.
+   Google issues a client secret for **Desktop app** OAuth clients. It is not a user password, but it must be configured and kept server-side. It is never sent to the renderer.
 
 6. Restart MailSentry, open **Settings**, and choose **Connect read-only** or **Connect with cleanup access**.
 
@@ -69,6 +69,7 @@ Scopes:
 - Token endpoint: `https://oauth2.googleapis.com/token`
 - Parameter highlights: `response_type=code`, `access_type=offline`, `prompt=consent`, S256 PKCE, `include_granted_scopes=true`.
 - Desktop flow: opened in the system default browser; the loopback callback is validated from server-side state, not a shared cookie.
+- Client type: **Desktop app**. Google issues a client secret for Desktop clients; configure `GOOGLE_CLIENT_SECRET` alongside `GOOGLE_CLIENT_ID`.
 - Account identity is read from `GET https://gmail.googleapis.com/gmail/v1/users/me/profile` (email address only).
 - Access tokens refresh server-side using the refresh token; refresh tokens are memory-only.
 - If consent is revoked or refresh fails, the local connection is removed and MailSentry asks you to reconnect.
@@ -125,22 +126,23 @@ Application permissions (`Mail.ReadWrite` as an app) are not used. MailSentry is
 2. Name it, e.g. `MailSentry local`.
 3. Supported account types: choose based on the mailboxes you need (commonly **Accounts in any organizational directory and personal Microsoft accounts**).
 4. Add a **Redirect URI**:
-   - Platform: **Web** (or **Mobile and desktop applications** for a public client).
+   - Platform: **Mobile and desktop applications** for a public client. This is the recommended registration. A public-client registration needs **no client secret**.
    - URI: exactly `http://127.0.0.1:4310/auth/microsoft/callback`.
+   - A **Web** platform registration is only needed if you intentionally use a confidential client.
 5. **API permissions** → Microsoft Graph → Delegated permissions:
    - `Mail.Read`
    - `Mail.ReadWrite`
    - `openid`, `profile`, `email`, `offline_access` are requested as identity scopes.
    - Grant consent if you are an administrator or use the consent prompt when connecting.
 6. **Certificates & secrets**:
-   - Preferred for a local client: no secret, PKCE public client.
-   - If your tenant requires a confidential client, create a client secret and set `MICROSOFT_CLIENT_SECRET`.
+   - Recommended: **Mobile and desktop applications** public client with PKCE and **no client secret**.
+   - If your tenant requires a confidential Web client, create a client secret and set `MICROSOFT_CLIENT_SECRET`.
    - For public-client PKCE in some tenant configurations, enable **Allow public client flows**.
 7. Copy the Application (client) ID and directory (tenant) ID into `.env`:
 
    ```dotenv
    MICROSOFT_CLIENT_ID=your-application-client-id
-   MICROSOFT_CLIENT_SECRET=          # optional
+   MICROSOFT_CLIENT_SECRET=          # leave blank for a public client
    MICROSOFT_TENANT_ID=common        # or organizations / consumers / tenant-id
    MAILSENTRY_BASE_URL=http://127.0.0.1:4310
    ```
@@ -153,6 +155,7 @@ Application permissions (`Mail.ReadWrite` as an app) are not used. MailSentry is
 - Token: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`
 - Parameter highlights: `response_type=code`, `response_mode=query`, S256 PKCE, `prompt=select_account`, exact redirect URI.
 - Desktop flow: opened in the system default browser; the loopback callback is validated from server-side state, not a shared cookie.
+- Client type: public client (**Mobile and desktop applications**), no client secret required; enable public client flows if the tenant requires it.
 - Account identity is decoded from the `id_token` returned directly by the token endpoint (display only).
 - Access tokens refresh server-side. Refresh failure removes the local connection.
 

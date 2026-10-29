@@ -84,9 +84,9 @@ export class ProviderManager {
 
   setupHint(provider: ProviderId): string {
     if (provider === "gmail") {
-      return "Create a Google OAuth client (Web application), register /auth/gmail/callback, and set GOOGLE_CLIENT_ID. See docs/PROVIDERS.md.";
+      return "Create a Google OAuth client of type Desktop app, register /auth/gmail/callback, and set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Google issues a client secret for Desktop clients. See docs/PROVIDERS.md.";
     }
-    return "Register an app in Microsoft Entra ID, add the redirect URI /auth/microsoft/callback, and set MICROSOFT_CLIENT_ID. See docs/PROVIDERS.md.";
+    return "Register a public-client (Mobile and desktop applications) app in Microsoft Entra ID, add the redirect URI /auth/microsoft/callback, and set MICROSOFT_CLIENT_ID. A public-client registration needs no client secret. See docs/PROVIDERS.md.";
   }
 
   status(sessionId: string): ProviderConnectionStatus[] {
@@ -122,7 +122,11 @@ export class ProviderManager {
     }
   }
 
-  beginAuth(sessionId: string, provider: ProviderId, mode: AuthMode): { authorizeUrl: string } {
+  beginAuth(
+    sessionId: string,
+    provider: ProviderId,
+    mode: AuthMode,
+  ): { authorizeUrl: string; state: string } {
     this.prunePending();
     const credentials = this.credentials(provider);
     const state = randomBytes(24).toString("base64url");
@@ -143,7 +147,7 @@ export class ProviderManager {
       redirectUri,
       createdAt: Date.now(),
     });
-    return { authorizeUrl };
+    return { authorizeUrl, state };
   }
 
   async completeAuth(

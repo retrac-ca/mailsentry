@@ -1,6 +1,8 @@
-const SENSITIVE_KEY = /(token|secret|password|passwd|authorization|cookie|credential|api[-_]?key|code$)/i;
+const SENSITIVE_KEY =
+  /(token|secret|password|passwd|authorization|cookie|credential|api[-_]?key|code$|state$|verifier$)/i;
 const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{6,}/gi;
-const TOKEN_PARAM = /\b(access_token|refresh_token|id_token|client_secret|code)=([^&\s"']+)/gi;
+const TOKEN_PARAM =
+  /\b(access_token|refresh_token|id_token|client_secret|code_verifier|state|code)=([^&\s"']+)/gi;
 const GOOGLE_TOKEN = /\bya29\.[A-Za-z0-9._-]{10,}/g;
 const JWT = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/g;
 

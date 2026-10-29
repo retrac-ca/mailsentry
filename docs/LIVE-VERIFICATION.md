@@ -86,8 +86,7 @@ Sanitized errors/notes:
 
 - [ ] Google Cloud project created; Gmail API enabled.
 - [ ] OAuth consent screen configured; test account added.
-- [ ] Web OAuth client redirect URI exactly `http://127.0.0.1:4310/auth/gmail/callback` (or the configured origin).
-- [ ] `GOOGLE_CLIENT_ID` and optional `GOOGLE_CLIENT_SECRET` set in `.env`; server restarted.
+- [ ] Google **Desktop app** OAuth client created; redirect URI set; `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set in `.env`; server restarted.
 - [ ] Connected Gmail with **read-only** access.
 - [ ] Authorization opened in the system default browser, not inside the Electron window.
 - [ ] The loopback callback page said “You can return to MailSentry,” and the app window came to the front.
@@ -112,9 +111,9 @@ Sanitized errors/notes:
 
 ### Read-only verification
 
-- [ ] Entra app registered with the exact redirect URI `http://127.0.0.1:4310/auth/microsoft/callback` (or the configured origin).
+- [ ] Entra app registered as a public client (**Mobile and desktop applications**) with the exact redirect URI `http://127.0.0.1:4310/auth/microsoft/callback` (or the configured origin).
 - [ ] Delegated permissions `Mail.Read`, `Mail.ReadWrite`, `openid`, `profile`, `email`, `offline_access` added; consent granted if required.
-- [ ] `MICROSOFT_CLIENT_ID`, optional secret, and tenant ID set; server restarted.
+- [ ] `MICROSOFT_CLIENT_ID` and tenant ID set; no client secret for the public client; server restarted.
 - [ ] Connected with **read-only** access.
 - [ ] Authorization opened in the system default browser, not inside the Electron window.
 - [ ] The loopback callback page appeared and the app window came to the front.

@@ -20,7 +20,7 @@ Latest reference run (this implementation):
 
 | Check            | Result                               |
 | ---------------- | ------------------------------------ |
-| Tests            | **185 passed / 185** across 13 files |
+| Tests            | **187 passed / 187** across 13 files |
 | Statements       | 79.09%                               |
 | Branches         | 67.64%                               |
 | Functions        | 85.88%                               |
@@ -48,32 +48,32 @@ Coverage is intentionally lower in OAuth token exchange/refresh, the provider ma
 | `tests/unit/connection-check.test.ts`     | Read-only folder/metadata connection check, per-folder failures, unsupported folders, cancellation, no mutations                                                                           |
 | `tests/integration/cleanup.test.ts`       | Full scan → plan → dry-run/execute lifecycle, folder independence, stale/changed messages, failures, uncertainty, cancellation                                                             |
 | `tests/integration/server.test.ts`        | Session cookie, CSRF, Origin, Host/DNS-rebinding, body limits, unconfigured OAuth, plan-required execution, static fallback                                                                |
-| `tests/integration/desktop-oauth.test.ts` | System-browser start response, no authorize URL in desktop mode, cookie-independent callback handling, missing/unknown/replayed state, provider denial                                     |
+| `tests/integration/desktop-oauth.test.ts` | System-browser start response, no authorize URL in desktop mode, browser-open failure state cleanup, cookie-independent callback handling, missing/unknown/replayed state, provider denial |
 
 ## Required safety properties → tests
 
-| Property                                                          | Evidence                                                                                                                         |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Scanning never invokes mutations                                  | `cleanup.test.ts` → “scans paginated messages without any mutation call”; mutation counters remain 0                             |
-| Connection check never invokes mutations                          | `connection-check.test.ts`; folder probes only, mutation counters remain 0                                                       |
-| Preview never invokes mutations                                   | The same test plus plan construction; no mutation path is reachable from `scanMailbox`/`PlanStore.create`                        |
-| Dry-run never invokes mutations                                   | “performs revalidation reads but never mutates”; all archive/trash/delete counters 0 and mailbox IDs unchanged                   |
-| Inbox cleanup does not affect spam/trash unless selected          | “does not include or modify spam/trash during an inbox scan”                                                                     |
-| Selecting spam/trash does not implicitly select inbox             | “does not include the inbox when only spam is selected”                                                                          |
-| Permanent deletion requires explicit authorization + confirmation | `plan.test.ts` gate tests; `cleanup.test.ts` rejects executor without phrase, then deletes only with `DELETE PERMANENTLY`        |
-| Modified plan cannot execute without renewed review               | Hash mismatch test; changed message sets produce different hashes; consumed plans cannot replay                                  |
-| Changed messages between preview/execution are skipped            | Moved, removed, and newly protected messages are skipped; new messages absent from the plan are untouched                        |
-| Failed operations are not reported as successes                   | Injected provider failure yields `failed=1`, `succeeded=2`, and the message remains                                              |
-| Ambiguous outcomes are uncertain, not retried                     | Injected ambiguous timeout yields `uncertain=1`, `failed=0`; no automatic mutation retry                                         |
-| Cancellation is truthful                                          | Abort mid-run yields `cancelled=true`, processed < total, warning about in-flight work and no rollback                           |
-| Credentials do not leak                                           | Redaction tests for bearer headers, query tokens, Google tokens, JWTs, sensitive keys, and error strings                         |
-| Large scans remain bounded                                        | Scan retains only IDs/folders plus a ≤100 sample; benchmark measures peak RSS across 2k–30k messages                             |
-| Unsupported provider operations are disabled                      | Gmail permanent delete/Empty Trash rejected; read-only adapters refuse mutations                                                 |
-| Provider pagination is safe                                       | Synthetic pagination across 123 messages; Graph next-link origin validation                                                      |
-| HTTP boundary is safe                                             | CSRF required; cross-origin POST rejected; unexpected Host rejected with 421; non-JSON body rejected                             |
-| OAuth state is single-use and expires                             | `oauth-config.test.ts`: missing/unknown/expired/reused state rejected; consumed before exchange; provider mismatch rejected      |
-| Desktop OAuth does not rely on shared cookies                     | `desktop-oauth.test.ts`: callback with missing code/replay succeeds without any cookie; start response hides URL in desktop mode |
-| OAuth secrets are not exposed                                     | State/PKCE tests plus redaction tests; callback HTML contains no code/state/tokens                                               |
+| Property                                                          | Evidence                                                                                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scanning never invokes mutations                                  | `cleanup.test.ts` → “scans paginated messages without any mutation call”; mutation counters remain 0                                                               |
+| Connection check never invokes mutations                          | `connection-check.test.ts`; folder probes only, mutation counters remain 0                                                                                         |
+| Preview never invokes mutations                                   | The same test plus plan construction; no mutation path is reachable from `scanMailbox`/`PlanStore.create`                                                          |
+| Dry-run never invokes mutations                                   | “performs revalidation reads but never mutates”; all archive/trash/delete counters 0 and mailbox IDs unchanged                                                     |
+| Inbox cleanup does not affect spam/trash unless selected          | “does not include or modify spam/trash during an inbox scan”                                                                                                       |
+| Selecting spam/trash does not implicitly select inbox             | “does not include the inbox when only spam is selected”                                                                                                            |
+| Permanent deletion requires explicit authorization + confirmation | `plan.test.ts` gate tests; `cleanup.test.ts` rejects executor without phrase, then deletes only with `DELETE PERMANENTLY`                                          |
+| Modified plan cannot execute without renewed review               | Hash mismatch test; changed message sets produce different hashes; consumed plans cannot replay                                                                    |
+| Changed messages between preview/execution are skipped            | Moved, removed, and newly protected messages are skipped; new messages absent from the plan are untouched                                                          |
+| Failed operations are not reported as successes                   | Injected provider failure yields `failed=1`, `succeeded=2`, and the message remains                                                                                |
+| Ambiguous outcomes are uncertain, not retried                     | Injected ambiguous timeout yields `uncertain=1`, `failed=0`; no automatic mutation retry                                                                           |
+| Cancellation is truthful                                          | Abort mid-run yields `cancelled=true`, processed < total, warning about in-flight work and no rollback                                                             |
+| Credentials do not leak                                           | Redaction tests for bearer headers, query tokens, Google tokens, JWTs, sensitive keys, and error strings                                                           |
+| Large scans remain bounded                                        | Scan retains only IDs/folders plus a ≤100 sample; benchmark measures peak RSS across 2k–30k messages                                                               |
+| Unsupported provider operations are disabled                      | Gmail permanent delete/Empty Trash rejected; read-only adapters refuse mutations                                                                                   |
+| Provider pagination is safe                                       | Synthetic pagination across 123 messages; Graph next-link origin validation                                                                                        |
+| HTTP boundary is safe                                             | CSRF required; cross-origin POST rejected; unexpected Host rejected with 421; non-JSON body rejected                                                               |
+| OAuth state is single-use and expires                             | `oauth-config.test.ts`: missing/unknown/expired/reused state rejected; consumed before exchange; provider mismatch rejected                                        |
+| Desktop OAuth does not rely on shared cookies                     | `desktop-oauth.test.ts`: callback with missing code/replay works without any cookie; start response hides URL in desktop mode; browser-open failure consumes state |
+| OAuth secrets are not exposed                                     | State/PKCE tests plus redaction tests; callback HTML contains no code/state/tokens                                                                                 |
 
 ## Test architecture
 

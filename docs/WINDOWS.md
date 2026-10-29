@@ -177,9 +177,9 @@ MAILSENTRY_HOST=127.0.0.1
 PORT=4310
 MAILSENTRY_BASE_URL=http://127.0.0.1:4310
 GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+GOOGLE_CLIENT_SECRET=            # Google Desktop app clients receive a secret
 MICROSOFT_CLIENT_ID=
-MICROSOFT_CLIENT_SECRET=
+MICROSOFT_CLIENT_SECRET=         # leave blank for a public client
 MICROSOFT_TENANT_ID=common
 ```
 
@@ -190,7 +190,7 @@ http://127.0.0.1:4310/auth/gmail/callback
 http://127.0.0.1:4310/auth/microsoft/callback
 ```
 
-OAuth client IDs and optional client secrets are not embedded in the application. Users or deployers must register their own provider applications and configure them in `.env`. Provider setup is in [PROVIDERS.md](PROVIDERS.md). Client secrets in `.env` are plaintext within the Windows user profile; protect that file and do not include it in backups/support bundles.
+OAuth client IDs and client secrets are not embedded in the application. Users or deployers must register their own provider applications and configure them in `.env`. Google Desktop app clients receive a client secret; set `GOOGLE_CLIENT_SECRET`. Microsoft public clients (`Mobile and desktop applications`) need no secret. Provider setup is in [PROVIDERS.md](PROVIDERS.md). Client secrets in `.env` are plaintext within the Windows user profile; protect that file and do not include it in backups/support bundles.
 
 ### Data not persisted
 
