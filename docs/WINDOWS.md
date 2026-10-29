@@ -183,14 +183,12 @@ MICROSOFT_CLIENT_SECRET=         # leave blank for a public client
 MICROSOFT_TENANT_ID=common
 ```
 
-`MAILSENTRY_BASE_URL` must be exactly `http://127.0.0.1:<PORT>`. Do not use `localhost`, HTTPS, a reverse proxy, or a path. Use the same host/port in the OAuth app registrations:
+`MAILSENTRY_BASE_URL` must be exactly `http://127.0.0.1:<PORT>`. Do not use `localhost`, HTTPS, a reverse proxy, or a path. `127.0.0.1` and the fixed port are intentional so the loopback callback is predictable.
 
-```text
-http://127.0.0.1:4310/auth/gmail/callback
-http://127.0.0.1:4310/auth/microsoft/callback
-```
+- **Google:** create a **Desktop app** client. Google Desktop clients do not require manual redirect-URI registration. MailSentry handles the loopback callback at `http://127.0.0.1:4310/auth/gmail/callback` by default; the host and port follow the configured origin.
+- **Microsoft:** register the exact redirect URI `http://127.0.0.1:4310/auth/microsoft/callback` (or the configured origin) in Entra ID. Microsoft's exact-match requirement is unchanged.
 
-OAuth client IDs and client secrets are not embedded in the application. Users or deployers must register their own provider applications and configure them in `.env`. Google Desktop app clients receive a client secret; set `GOOGLE_CLIENT_SECRET`. Microsoft public clients (`Mobile and desktop applications`) need no secret. Provider setup is in [PROVIDERS.md](PROVIDERS.md). Client secrets in `.env` are plaintext within the Windows user profile; protect that file and do not include it in backups/support bundles.
+OAuth client IDs and client secrets are not embedded in the application. Users or deployers must register their own provider applications and configure them in `.env`. Google Desktop app clients receive a client secret; set `GOOGLE_CLIENT_SECRET`, but treat it as a non-confidential public-client credential, not a server secret. Microsoft public clients (`Mobile and desktop applications`) need no secret. Provider setup is in [PROVIDERS.md](PROVIDERS.md). Client secrets in `.env` are plaintext within the Windows user profile; protect that file and do not include it in backups/support bundles.
 
 ### Data not persisted
 
@@ -207,7 +205,7 @@ Chromium may write standard cache/state files under the user-data directory, but
 
 - **Single instance:** launching a second copy focuses the existing window.
 - **Readiness:** the window is created only after the HTTP server has bound successfully.
-- **Port conflict:** startup fails with a clear error; the app does not silently switch ports because OAuth redirects are registered for a specific port.
+- **Port conflict:** startup fails with a clear error; the app does not silently switch ports because the loopback callback and Microsoft's registered redirect use a specific port.
 - **Shutdown:** closing the window stops the server and closes open sockets; no orphaned `MailSentry.exe` process was observed in validation.
 - **Active cleanup:** closing the window while a cleanup job is running shows a warning; quitting interrupts the job without rollback and can leave in-flight operations uncertain.
 - **Logs:** JSON lines are written to `%APPDATA%\MailSentry\logs\mailsentry.log` (rotated at 5 MB) with the existing credential redaction rules.
@@ -256,18 +254,18 @@ Installer execution/upgrade/uninstall is **not** verified in this repository. Tr
 
 ## Troubleshooting
 
-| Symptom                                   | Resolution                                                                                          |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| App does not start; port error            | Close the process using port 4310, or change `PORT` and update both OAuth redirect URIs.            |
-| Desktop rejects the config                | Use `MAILSENTRY_HOST=127.0.0.1` and `MAILSENTRY_BASE_URL=http://127.0.0.1:4310` exactly.            |
-| OAuth redirect mismatch                   | Register the exact callback URI shown above; do not use `localhost` when the app uses `127.0.0.1`.  |
-| `wine process failed ENOENT`              | NSIS is being built on Linux/WSL without Wine; build on Windows or produce only `win-unpacked`/ZIP. |
-| SmartScreen warning                       | Expected for unsigned artifacts. Sign with a trusted certificate before public distribution.        |
-| Window is blank                           | Check `%APPDATA%\MailSentry\logs\mailsentry.log`; rebuild to ensure `dist/public` is present.       |
-| Provider actions fail                     | Check granted scopes in Settings, reconnect with cleanup access, and verify provider permissions.   |
-| Port conflict error mentions `EADDRINUSE` | Another instance/program owns 4310; only one MailSentry instance is allowed.                        |
-| System browser does not open              | Check the Windows default-browser configuration; start the connection again.                        |
-| Callback page says unknown/expired state  | Authorization took over 10 minutes, was reused, or the app restarted. Close it and connect again.   |
+| Symptom                                   | Resolution                                                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App does not start; port error            | Close the process using port 4310, or change `PORT` and update `MAILSENTRY_BASE_URL`; update the Microsoft Entra redirect URI. Google Desktop clients need no redirect registration.                                                                  |
+| Desktop rejects the config                | Use `MAILSENTRY_HOST=127.0.0.1` and `MAILSENTRY_BASE_URL=http://127.0.0.1:4310` exactly.                                                                                                                                                              |
+| OAuth redirect mismatch                   | Microsoft: register the exact callback URI and do not use `localhost` when the app uses `127.0.0.1`. Google Desktop: no redirect registration is needed; confirm the client is type **Desktop app** and the request uses the configured loopback URI. |
+| `wine process failed ENOENT`              | NSIS is being built on Linux/WSL without Wine; build on Windows or produce only `win-unpacked`/ZIP.                                                                                                                                                   |
+| SmartScreen warning                       | Expected for unsigned artifacts. Sign with a trusted certificate before public distribution.                                                                                                                                                          |
+| Window is blank                           | Check `%APPDATA%\MailSentry\logs\mailsentry.log`; rebuild to ensure `dist/public` is present.                                                                                                                                                         |
+| Provider actions fail                     | Check granted scopes in Settings, reconnect with cleanup access, and verify provider permissions.                                                                                                                                                     |
+| Port conflict error mentions `EADDRINUSE` | Another instance/program owns 4310; only one MailSentry instance is allowed.                                                                                                                                                                          |
+| System browser does not open              | Check the Windows default-browser configuration; start the connection again.                                                                                                                                                                          |
+| Callback page says unknown/expired state  | Authorization took over 10 minutes, was reused, or the app restarted. Close it and connect again.                                                                                                                                                     |
 
 ## Known limitations
 

@@ -48,9 +48,8 @@ Scopes:
 4. Go to **Credentials → Create credentials → OAuth client ID**.
    - Application type: **Desktop app**.
    - Name: e.g. `MailSentry local`.
-   - Add the loopback redirect URI:
-     `http://127.0.0.1:4310/auth/gmail/callback`
-     (replace host/port if `MAILSENTRY_BASE_URL` differs; the scheme, host, port, path, and trailing slash must match).
+   - Google Desktop clients do **not** require manual redirect-URI registration. MailSentry handles the loopback callback at `http://127.0.0.1:4310/auth/gmail/callback` with the default configuration; the host and port follow `MAILSENTRY_BASE_URL` and `PORT`.
+   - Do not create a **Web application** client just to register this callback. Desktop clients do not use the Web application redirect-URI list.
 5. Copy the client ID and client secret into `.env`:
 
    ```dotenv
@@ -59,7 +58,7 @@ Scopes:
    MAILSENTRY_BASE_URL=http://127.0.0.1:4310
    ```
 
-   Google issues a client secret for **Desktop app** OAuth clients. It is not a user password, but it must be configured and kept server-side. It is never sent to the renderer.
+   Google issues a client secret for **Desktop app** OAuth clients. Treat it as a non-confidential public-client credential, not as a server secret: it is not a user password, and Desktop apps cannot keep secrets confidential. PKCE protects the flow. The value is kept server-side and is never sent to the renderer.
 
 6. Restart MailSentry, open **Settings**, and choose **Connect read-only** or **Connect with cleanup access**.
 
@@ -69,7 +68,8 @@ Scopes:
 - Token endpoint: `https://oauth2.googleapis.com/token`
 - Parameter highlights: `response_type=code`, `access_type=offline`, `prompt=consent`, S256 PKCE, `include_granted_scopes=true`.
 - Desktop flow: opened in the system default browser; the loopback callback is validated from server-side state, not a shared cookie.
-- Client type: **Desktop app**. Google issues a client secret for Desktop clients; configure `GOOGLE_CLIENT_SECRET` alongside `GOOGLE_CLIENT_ID`.
+- Redirect: Google Desktop clients do not require manual redirect-URI registration. MailSentry uses `http://127.0.0.1:4310/auth/gmail/callback` with the default configuration and sends the same URI in the token exchange. The loopback host and fixed port are intentional so the callback is predictable.
+- Client type: **Desktop app**. Google issues a client secret for Desktop clients; configure `GOOGLE_CLIENT_SECRET` alongside `GOOGLE_CLIENT_ID`. Desktop client secrets are public-client credentials, not confidential server secrets.
 - Account identity is read from `GET https://gmail.googleapis.com/gmail/v1/users/me/profile` (email address only).
 - Access tokens refresh server-side using the refresh token; refresh tokens are memory-only.
 - If consent is revoked or refresh fails, the local connection is removed and MailSentry asks you to reconnect.
@@ -246,19 +246,19 @@ Record what was verified in the pull request or release notes. Do not claim live
 
 ## Troubleshooting
 
-| Symptom                                    | Likely cause / fix                                                                                      |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `redirect_uri_mismatch` (Google)           | Redirect URI must exactly match `${MAILSENTRY_BASE_URL}/auth/gmail/callback`                            |
-| OAuth returns 400 / callback rejected      | Use the exact redirect URI; state expires after 10 minutes and is single-use. Start connection again.   |
-| System browser does not open               | Check the Windows default-browser setting and try again.                                                |
-| Callback page says unknown/expired state   | Authorization took over 10 minutes, was reused, or the app restarted. Close the page and connect again. |
-| Microsoft `AADSTS50011`                    | Redirect URI mismatch in the app registration                                                           |
-| Microsoft `AADSTS65001` / consent required | Admin consent or interactive consent for delegated scopes                                               |
-| Microsoft public-client error              | Enable public client flows or configure a client secret                                                 |
-| Google “Access blocked”                    | App in testing: add your account as a test user, or complete verification                               |
-| 401 after some time                        | Token expired and refresh failed; reconnect                                                             |
-| 403 on operations                          | Scope too narrow (read-only) or tenant/mailbox restriction; reconnect with cleanup access               |
-| Gmail permanent delete unavailable         | Expected: full-mailbox scope is intentionally not requested                                             |
-| Archive fails on Microsoft                 | No Archive folder in the mailbox                                                                        |
-| No attachment filter                       | Provider list APIs do not expose reliable attachment sizes                                              |
-| Bulk filter finds nothing on Microsoft     | Header inspection is not implemented; uncertain classifications are excluded                            |
+| Symptom                                    | Likely cause / fix                                                                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `redirect_uri_mismatch` (Google)           | Desktop clients need no registered redirect. Confirm the client is type **Desktop app** and the request uses `${MAILSENTRY_BASE_URL}/auth/gmail/callback`; do not use a Web application client unless you intentionally register that exact URI. |
+| OAuth returns 400 / callback rejected      | State expires after 10 minutes and is single-use. Start connection again. For Microsoft, verify the exact registered redirect URI.                                                                                                               |
+| System browser does not open               | Check the Windows default-browser setting and try again.                                                                                                                                                                                         |
+| Callback page says unknown/expired state   | Authorization took over 10 minutes, was reused, or the app restarted. Close the page and connect again.                                                                                                                                          |
+| Microsoft `AADSTS50011`                    | Redirect URI mismatch in the app registration                                                                                                                                                                                                    |
+| Microsoft `AADSTS65001` / consent required | Admin consent or interactive consent for delegated scopes                                                                                                                                                                                        |
+| Microsoft public-client error              | Enable public client flows or configure a client secret                                                                                                                                                                                          |
+| Google “Access blocked”                    | App in testing: add your account as a test user, or complete verification                                                                                                                                                                        |
+| 401 after some time                        | Token expired and refresh failed; reconnect                                                                                                                                                                                                      |
+| 403 on operations                          | Scope too narrow (read-only) or tenant/mailbox restriction; reconnect with cleanup access                                                                                                                                                        |
+| Gmail permanent delete unavailable         | Expected: full-mailbox scope is intentionally not requested                                                                                                                                                                                      |
+| Archive fails on Microsoft                 | No Archive folder in the mailbox                                                                                                                                                                                                                 |
+| No attachment filter                       | Provider list APIs do not expose reliable attachment sizes                                                                                                                                                                                       |
+| Bulk filter finds nothing on Microsoft     | Header inspection is not implemented; uncertain classifications are excluded                                                                                                                                                                     |

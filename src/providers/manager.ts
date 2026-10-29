@@ -84,7 +84,7 @@ export class ProviderManager {
 
   setupHint(provider: ProviderId): string {
     if (provider === "gmail") {
-      return "Create a Google OAuth client of type Desktop app, register /auth/gmail/callback, and set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Google issues a client secret for Desktop clients. See docs/PROVIDERS.md.";
+      return "Create a Google OAuth client of type Desktop app. No redirect URI registration is required; MailSentry handles the loopback callback at /auth/gmail/callback. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Desktop client secrets are not confidential; PKCE protects the flow. See docs/PROVIDERS.md.";
     }
     return "Register a public-client (Mobile and desktop applications) app in Microsoft Entra ID, add the redirect URI /auth/microsoft/callback, and set MICROSOFT_CLIENT_ID. A public-client registration needs no client secret. See docs/PROVIDERS.md.";
   }

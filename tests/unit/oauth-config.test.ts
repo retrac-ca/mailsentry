@@ -16,6 +16,13 @@ import { loadConfig, loadDotEnv } from "../../src/core/config.js";
 import { AppError } from "../../src/core/errors.js";
 import { testConfig } from "../helpers/fixtures.js";
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 describe("OAuth URL construction", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -69,6 +76,129 @@ describe("OAuth URL construction", () => {
     expect(accountFromIdToken(`header.${payload}.signature`)).toBe("user@example.com");
     expect(accountFromIdToken("not-a-token")).toBeNull();
     expect(accountFromIdToken(null)).toBeNull();
+  });
+});
+
+describe("Google token exchange", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the exact redirect URI and PKCE verifier with the client secret when configured", async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit): Promise<Response> =>
+      jsonResponse({
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        scope: "https://www.googleapis.com/auth/gmail.readonly",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { verifier } = pkcePair();
+    const redirectUri = "http://127.0.0.1:4310/auth/gmail/callback";
+    const tokens = await new GoogleOAuthClient().exchangeCode({
+      credentials: { clientId: "desktop-client", clientSecret: "desktop-secret" },
+      redirectUri,
+      code: "authorization-code",
+      codeVerifier: verifier,
+      scopes: "https://www.googleapis.com/auth/gmail.readonly",
+    });
+
+    expect(tokens.accessToken).toBe("access-token");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe("https://oauth2.googleapis.com/token");
+    expect(init?.method).toBe("POST");
+    const body = new URLSearchParams(String(init?.body));
+    expect(body.get("redirect_uri")).toBe(redirectUri);
+    expect(body.get("client_id")).toBe("desktop-client");
+    expect(body.get("grant_type")).toBe("authorization_code");
+    expect(body.get("code")).toBe("authorization-code");
+    expect(body.get("code_verifier")).toBe(verifier);
+    expect(body.get("client_secret")).toBe("desktop-secret");
+  });
+
+  it("omits client_secret when no secret is configured", async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit): Promise<Response> =>
+      jsonResponse({ access_token: "access-token", expires_in: 3600 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { verifier } = pkcePair();
+    await new GoogleOAuthClient().exchangeCode({
+      credentials: { clientId: "desktop-client" },
+      redirectUri: "http://127.0.0.1:4310/auth/gmail/callback",
+      code: "authorization-code",
+      codeVerifier: verifier,
+      scopes: "https://www.googleapis.com/auth/gmail.readonly",
+    });
+
+    const body = new URLSearchParams(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.get("client_id")).toBe("desktop-client");
+    expect(body.has("client_secret")).toBe(false);
+  });
+});
+
+describe("Google redirect URI round trip", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the authorization redirect URI unchanged for the token exchange", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, _init?: RequestInit): Promise<Response> => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return jsonResponse({
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+          expires_in: 3600,
+          scope: "https://www.googleapis.com/auth/gmail.readonly",
+        });
+      }
+      if (url.includes("gmail.googleapis.com/gmail/v1/users/me/profile")) {
+        return jsonResponse({ emailAddress: "user@example.com" });
+      }
+      return jsonResponse({ error: "unexpected request" }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const manager = new ProviderManager(
+      testConfig({ google: { clientId: "google-client", clientSecret: "desktop-secret" } }),
+      new ConnectionStore(),
+    );
+    const started = manager.beginAuth("session", "gmail", "readonly");
+    const authorizeUrl = new URL(started.authorizeUrl);
+    const authorizeRedirect = authorizeUrl.searchParams.get("redirect_uri");
+    const challenge = authorizeUrl.searchParams.get("code_challenge");
+    expect(authorizeRedirect).toBe("http://127.0.0.1:4310/auth/gmail/callback");
+
+    const result = await manager.completeAuth("gmail", "authorization-code", started.state);
+    expect(result.account).toBe("user@example.com");
+
+    const tokenCall = fetchMock.mock.calls.find(
+      ([input]) => String(input) === "https://oauth2.googleapis.com/token",
+    );
+    expect(tokenCall).toBeDefined();
+    const body = new URLSearchParams(String(tokenCall?.[1]?.body));
+    expect(body.get("redirect_uri")).toBe(authorizeRedirect);
+    expect(body.get("client_id")).toBe("google-client");
+    expect(body.get("grant_type")).toBe("authorization_code");
+    expect(body.get("client_secret")).toBe("desktop-secret");
+    const verifier = body.get("code_verifier") ?? "";
+    expect(verifier.length).toBeGreaterThanOrEqual(43);
+    expect(createHash("sha256").update(verifier).digest("base64url")).toBe(challenge);
+  });
+});
+
+describe("provider setup guidance", () => {
+  it("does not ask Google Desktop users to register a redirect URI", () => {
+    const manager = new ProviderManager(testConfig(), new ConnectionStore());
+    const gmail = manager.setupHint("gmail");
+    expect(gmail).toContain("Desktop app");
+    expect(gmail).toMatch(/no redirect URI registration/i);
+    expect(gmail).not.toMatch(/register \/auth\/gmail\/callback/i);
+    expect(manager.setupHint("microsoft")).toContain("add the redirect URI /auth/microsoft/callback");
   });
 });
 

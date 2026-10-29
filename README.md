@@ -202,9 +202,9 @@ Full step-by-step instructions, scopes, redirect URIs, and troubleshooting are i
 
 Short version:
 
-1. Set `MAILSENTRY_BASE_URL` to the exact origin you use, e.g. `http://127.0.0.1:4310`. Do not include a path, and keep its port equal to `PORT`. The desktop app requires exactly `http://127.0.0.1:4310`.
-2. **Google:** create an OAuth 2.0 **Desktop app** client; add `http://127.0.0.1:4310/auth/gmail/callback`; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (Google issues a secret for Desktop app clients).
-3. **Microsoft:** create a public-client **Mobile and desktop applications** registration; add `http://127.0.0.1:4310/auth/microsoft/callback`; set `MICROSOFT_CLIENT_ID`. A public-client registration needs no client secret.
+1. Set `MAILSENTRY_BASE_URL` to the exact origin you use, e.g. `http://127.0.0.1:4310`. Do not include a path, and keep its port equal to `PORT`. The desktop app requires exactly `http://127.0.0.1:4310`; `127.0.0.1` and the fixed port are intentional because the loopback callback must be predictable.
+2. **Google:** create an OAuth 2.0 **Desktop app** client. Google Desktop clients do not require manual redirect-URI registration; MailSentry handles the loopback callback at `http://127.0.0.1:4310/auth/gmail/callback`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (Google issues a secret for Desktop clients, but it is not a confidential server secret; PKCE protects the flow).
+3. **Microsoft:** create a public-client **Mobile and desktop applications** registration; add the exact redirect URI `http://127.0.0.1:4310/auth/microsoft/callback`; set `MICROSOFT_CLIENT_ID`. A public-client registration needs no client secret. Microsoft's exact redirect-URI registration requirement is unchanged.
 4. Restart MailSentry and connect from **Settings** or **Mailbox Cleanup**.
 5. Use **Check read-only connection** in Settings and follow [docs/LIVE-VERIFICATION.md](docs/LIVE-VERIFICATION.md) before attempting cleanup.
 

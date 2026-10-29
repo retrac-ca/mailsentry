@@ -28,7 +28,7 @@ Last updated: 2026-10-29.
 
 - Node.js 22.x (CI uses 22.23.2) and the repository checked out.
 - `.env` with the correct `MAILSENTRY_BASE_URL` and matching `PORT`.
-- Google OAuth client and/or Microsoft Entra app registered exactly as described in [PROVIDERS.md](PROVIDERS.md).
+- Google OAuth client and/or Microsoft Entra app configured as described in [PROVIDERS.md](PROVIDERS.md).
 - A test mailbox with a few read, unstarred, non-important messages from a unique test sender.
 - An incognito browser profile is recommended to avoid mixing sessions.
 
@@ -86,7 +86,8 @@ Sanitized errors/notes:
 
 - [ ] Google Cloud project created; Gmail API enabled.
 - [ ] OAuth consent screen configured; test account added.
-- [ ] Google **Desktop app** OAuth client created; redirect URI set; `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set in `.env`; server restarted.
+- [ ] Google **Desktop app** OAuth client created; no manual redirect-URI registration required; `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set in `.env`; server restarted.
+- [ ] The authorization request used the default loopback callback `http://127.0.0.1:4310/auth/gmail/callback`.
 - [ ] Connected Gmail with **read-only** access.
 - [ ] Authorization opened in the system default browser, not inside the Electron window.
 - [ ] The loopback callback page said “You can return to MailSentry,” and the app window came to the front.
