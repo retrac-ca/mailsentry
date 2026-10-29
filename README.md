@@ -147,7 +147,7 @@ For development:
 npm run desktop
 ```
 
-Desktop configuration lives in `%APPDATA%\MailSentry\.env`; the app copies `.env.example` there on first launch. It requires `MAILSENTRY_BASE_URL=http://127.0.0.1:4310` and `PORT=4310`, and OAuth redirects must use the same exact origin. See [docs/WINDOWS.md](docs/WINDOWS.md) for build requirements, data locations, smoke testing, installer limitations, and the manual Windows checklist.
+Desktop configuration lives in `%APPDATA%\MailSentry\.env`; the app copies `.env.example` there on first launch. It requires `MAILSENTRY_BASE_URL=http://127.0.0.1:4310` and `PORT=4310`, and OAuth redirects must use the same exact origin. In desktop mode, **Connect** opens the provider’s authorization page in the system default browser; the loopback server receives the callback using server-side single-use state + PKCE, then the app refreshes and comes to the front. See [docs/WINDOWS.md](docs/WINDOWS.md) for build requirements, data locations, smoke testing, installer limitations, and the manual Windows checklist.
 
 The current artifacts are **unsigned** and have **not** been installed/upgrade-tested. The unpacked and portable builds were launched natively on Windows 11; see the completion report and `docs/WINDOWS.md`.
 
@@ -316,6 +316,7 @@ The synthetic fixture itself holds the whole mailbox in memory, so these peaks a
 ## Security and privacy
 
 - OAuth only; no password collection.
+- Desktop authorization opens in the system default browser; the loopback callback uses single-use server-side state + S256 PKCE, not a shared browser cookie.
 - Minimal scopes; Gmail full scope is never requested.
 - Tokens in server memory, never in browser bundles, responses, or logs.
 - No token encryption scheme is invented. Avoiding persistence avoids storing plaintext credentials.
@@ -334,7 +335,7 @@ MailSentry is local-first, not magic: whoever controls the local machine or the 
 ## Testing and validation
 
 ```bash
-npm test              # 174 unit + integration tests
+npm test              # 185 unit + integration tests
 npm run test:coverage # V8 coverage
 npm run typecheck     # server and browser
 npm run lint          # ESLint

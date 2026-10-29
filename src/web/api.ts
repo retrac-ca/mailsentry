@@ -1,6 +1,7 @@
 import type {
   ActivityItem,
   AppStatus,
+  AuthStartResponse,
   CleanupJob,
   CleanupPreview,
   DiagnosticReport,
@@ -76,12 +77,11 @@ export async function runDiagnostics(
 export async function startAuth(
   provider: "gmail" | "microsoft",
   mode: "readonly" | "cleanup",
-): Promise<string> {
-  const result = await request<{ authorizeUrl: string }>(`/api/auth/${provider}/start`, {
+): Promise<AuthStartResponse> {
+  return request<AuthStartResponse>(`/api/auth/${provider}/start`, {
     method: "POST",
     body: JSON.stringify({ mode }),
   });
-  return result.authorizeUrl;
 }
 
 export async function disconnect(provider: "gmail" | "microsoft"): Promise<AppStatus["providers"]> {

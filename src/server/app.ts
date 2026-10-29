@@ -18,6 +18,7 @@ import type {
   CleanupFilters,
   CleanupJob,
   ExecuteRequest,
+  ProviderId,
 } from "../shared/types.js";
 import { APP_NAME, APP_VERSION } from "../shared/version.js";
 import { redactString, safeErrorMessage } from "../security/redact.js";
@@ -66,6 +67,20 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function oauthResultPage(title: string, heading: string, message: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(
+    title,
+  )}</title></head><body><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(message)}</p></body></html>`;
+}
+
+export interface MailSentryAppHooks {
+  /** Desktop mode opens provider authorization in the system browser. */
+  openExternal?: (url: string) => Promise<void> | void;
+  /** Desktop mode shows a completion page and focuses the app after callback. */
+  desktopMode?: boolean;
+  onOAuthSuccess?: (provider: ProviderId) => void;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new AppError("VALIDATION", "Request body must be a JSON object.", 400);
@@ -83,6 +98,7 @@ export class MailSentryApp {
   constructor(
     private readonly config: AppConfig,
     private readonly rootDir = process.cwd(),
+    private readonly hooks: MailSentryAppHooks = {},
   ) {
     this.sessions = new SessionStore(config);
     this.plans = new PlanStore(config.planTtlMs, 3);
@@ -314,7 +330,21 @@ export class MailSentryApp {
         const body = asRecord(await readJsonBody(req));
         const mode = parseAuthMode(body["mode"]);
         const { authorizeUrl } = this.providers.beginAuth(session.id, provider, mode);
-        sendJson(res, 200, { authorizeUrl });
+        if (this.hooks.openExternal) {
+          try {
+            await this.hooks.openExternal(authorizeUrl);
+          } catch (error) {
+            log.warn("could not open authorization in system browser", { provider, error });
+            throw new AppError(
+              "PROVIDER_ERROR",
+              "Could not open the system browser for authorization. Try again or check the default browser configuration.",
+              502,
+            );
+          }
+          sendJson(res, 200, { openedExternally: true });
+        } else {
+          sendJson(res, 200, { openedExternally: false, authorizeUrl });
+        }
         return true;
       }
       if (action === "disconnect" && method === "POST") {
@@ -585,45 +615,63 @@ export class MailSentryApp {
   }
 
   private async handleOAuthCallback(
-    req: IncomingMessage,
+    _req: IncomingMessage,
     res: ServerResponse,
     pathname: string,
     query: URLSearchParams,
   ): Promise<void> {
     const provider = pathname.includes("gmail") ? "gmail" : "microsoft";
-    const session = this.getSession(req, res, false);
-    if (!session) {
-      sendHtml(
-        res,
-        400,
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Authorization failed</title></head><body><h1>Authorization session missing</h1><p>Return to MailSentry, reload the page, and start the connection again.</p></body></html>',
-      );
-      return;
-    }
+    const providerName = provider === "gmail" ? "Gmail" : "Microsoft";
+    const state = query.get("state") ?? "";
     const error = query.get("error");
     if (error) {
+      this.providers.cancelAuth(provider, state);
       const description = redactString(query.get("error_description") ?? error).slice(0, 200);
       sendHtml(
         res,
         400,
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Authorization cancelled</title></head><body><h1>Authorization was not completed</h1><p>${escapeHtml(description)}</p><p><a href="/#/settings">Return to MailSentry</a></p></body></html>`,
+        oauthResultPage(
+          "Authorization cancelled",
+          "Authorization was not completed",
+          `${description} You can return to MailSentry and try again.`,
+        ),
       );
       return;
     }
     const code = query.get("code") ?? "";
-    const state = query.get("state") ?? "";
     try {
-      await this.providers.completeAuth(session.id, provider, code, state);
-      res.writeHead(302, { Location: `/?connected=${provider}#/settings`, "Cache-Control": "no-store" });
-      res.end();
+      await this.providers.completeAuth(provider, code, state);
       log.info("provider connected", { provider });
+      try {
+        this.hooks.onOAuthSuccess?.(provider);
+      } catch (hookError) {
+        log.warn("could not focus MailSentry after authorization", { provider, error: hookError });
+      }
+      if (this.hooks.desktopMode) {
+        sendHtml(
+          res,
+          200,
+          oauthResultPage(
+            `${providerName} connected`,
+            `${providerName} connected`,
+            "You can return to MailSentry. The app window has been brought to the front.",
+          ),
+        );
+      } else {
+        res.writeHead(302, { Location: `/?connected=${provider}#/settings`, "Cache-Control": "no-store" });
+        res.end();
+      }
     } catch (authError) {
       const message =
         authError instanceof AppError ? authError.message : "Authorization could not be completed.";
       sendHtml(
         res,
         400,
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Authorization failed</title></head><body><h1>Authorization failed</h1><p>${escapeHtml(message)}</p><p><a href="/#/settings">Return to MailSentry</a></p></body></html>`,
+        oauthResultPage(
+          "Authorization failed",
+          "Authorization failed",
+          `${message} You can return to MailSentry and start again.`,
+        ),
       );
       log.warn("provider authorization failed", { provider, error: authError });
     }

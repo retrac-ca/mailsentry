@@ -2,6 +2,8 @@
 
 MailSentry uses official OAuth authorization-code flows with PKCE and provider REST APIs. No email password is ever requested. No provider SDKs are used.
 
+In the Windows desktop app, the authorization URL is opened in the user's system default browser with Electron `shell.openExternal`. The existing loopback server receives the callback. State and PKCE verifier are stored server-side; the callback does not depend on sharing the app window's cookie. State is single-use and expires after 10 minutes. On success the browser shows a short “You can return to MailSentry” page and the app window reloads and comes to the front. The browser/server mode retains its normal redirect back to the app.
+
 ## Readiness matrix
 
 | Provider                | Adapter code | Mocked tests | Live verification | Notes                                               |
@@ -66,6 +68,7 @@ Scopes:
 - Authorization endpoint: `https://accounts.google.com/o/oauth2/v2/auth`
 - Token endpoint: `https://oauth2.googleapis.com/token`
 - Parameter highlights: `response_type=code`, `access_type=offline`, `prompt=consent`, S256 PKCE, `include_granted_scopes=true`.
+- Desktop flow: opened in the system default browser; the loopback callback is validated from server-side state, not a shared cookie.
 - Account identity is read from `GET https://gmail.googleapis.com/gmail/v1/users/me/profile` (email address only).
 - Access tokens refresh server-side using the refresh token; refresh tokens are memory-only.
 - If consent is revoked or refresh fails, the local connection is removed and MailSentry asks you to reconnect.
@@ -149,6 +152,7 @@ Application permissions (`Mail.ReadWrite` as an app) are not used. MailSentry is
 - Authorize: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`
 - Token: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`
 - Parameter highlights: `response_type=code`, `response_mode=query`, S256 PKCE, `prompt=select_account`, exact redirect URI.
+- Desktop flow: opened in the system default browser; the loopback callback is validated from server-side state, not a shared cookie.
 - Account identity is decoded from the `id_token` returned directly by the token endpoint (display only).
 - Access tokens refresh server-side. Refresh failure removes the local connection.
 
@@ -222,33 +226,36 @@ Use a dedicated test mailbox and non-sensitive data. Follow the detailed, eviden
 At minimum:
 
 1. Configure OAuth and connect in **read-only** mode.
-2. Confirm the account address and granted scopes in Settings.
-3. Run **Check read-only connection**; confirm all tracked folders are readable.
-4. Scan each folder separately and confirm counts match the provider UI.
-5. Confirm no mutation occurs (provider audit/log or mailbox state).
-6. Run a dry run and confirm no mutation.
-7. Reconnect with cleanup access.
-8. Create a few test messages; archive one batch and verify folder location.
-9. Move one batch to Trash and verify.
-10. For Microsoft only, test permanent delete and Empty Trash with disposable messages and the typed phrase.
-11. Disconnect and confirm the API reports no connection; restart and confirm reconnection is required.
-12. Revoke the grant at the provider and confirm a stale session cannot operate.
+2. Confirm the system browser opens, you complete consent, and the loopback callback page says you can return to MailSentry.
+3. Confirm the MailSentry window returns to the front and shows the connected account/scopes.
+4. Run **Check read-only connection**; confirm all tracked folders are readable.
+5. Scan each folder separately and confirm counts match the provider UI.
+6. Confirm no mutation occurs (provider audit/log or mailbox state).
+7. Run a dry run and confirm no mutation.
+8. Reconnect with cleanup access.
+9. Create a few test messages; archive one batch and verify folder location.
+10. Move one batch to Trash and verify.
+11. For Microsoft only, test permanent delete and Empty Trash with disposable messages and the typed phrase.
+12. Disconnect and confirm the API reports no connection; restart and confirm reconnection is required.
+13. Revoke the grant at the provider and confirm a stale session cannot operate.
 
 Record what was verified in the pull request or release notes. Do not claim live verification for a provider you have not tested; sanitize all evidence.
 
 ## Troubleshooting
 
-| Symptom                                    | Likely cause / fix                                                                                                     |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `redirect_uri_mismatch` (Google)           | Redirect URI must exactly match `${MAILSENTRY_BASE_URL}/auth/gmail/callback`                                           |
-| OAuth returns 400 / session missing        | Use the **same hostname** in the browser and `MAILSENTRY_BASE_URL` (`localhost` and `127.0.0.1` have separate cookies) |
-| Microsoft `AADSTS50011`                    | Redirect URI mismatch in the app registration                                                                          |
-| Microsoft `AADSTS65001` / consent required | Admin consent or interactive consent for delegated scopes                                                              |
-| Microsoft public-client error              | Enable public client flows or configure a client secret                                                                |
-| Google “Access blocked”                    | App in testing: add your account as a test user, or complete verification                                              |
-| 401 after some time                        | Token expired and refresh failed; reconnect                                                                            |
-| 403 on operations                          | Scope too narrow (read-only) or tenant/mailbox restriction; reconnect with cleanup access                              |
-| Gmail permanent delete unavailable         | Expected: full-mailbox scope is intentionally not requested                                                            |
-| Archive fails on Microsoft                 | No Archive folder in the mailbox                                                                                       |
-| No attachment filter                       | Provider list APIs do not expose reliable attachment sizes                                                             |
-| Bulk filter finds nothing on Microsoft     | Header inspection is not implemented; uncertain classifications are excluded                                           |
+| Symptom                                    | Likely cause / fix                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `redirect_uri_mismatch` (Google)           | Redirect URI must exactly match `${MAILSENTRY_BASE_URL}/auth/gmail/callback`                            |
+| OAuth returns 400 / callback rejected      | Use the exact redirect URI; state expires after 10 minutes and is single-use. Start connection again.   |
+| System browser does not open               | Check the Windows default-browser setting and try again.                                                |
+| Callback page says unknown/expired state   | Authorization took over 10 minutes, was reused, or the app restarted. Close the page and connect again. |
+| Microsoft `AADSTS50011`                    | Redirect URI mismatch in the app registration                                                           |
+| Microsoft `AADSTS65001` / consent required | Admin consent or interactive consent for delegated scopes                                               |
+| Microsoft public-client error              | Enable public client flows or configure a client secret                                                 |
+| Google “Access blocked”                    | App in testing: add your account as a test user, or complete verification                               |
+| 401 after some time                        | Token expired and refresh failed; reconnect                                                             |
+| 403 on operations                          | Scope too narrow (read-only) or tenant/mailbox restriction; reconnect with cleanup access               |
+| Gmail permanent delete unavailable         | Expected: full-mailbox scope is intentionally not requested                                             |
+| Archive fails on Microsoft                 | No Archive folder in the mailbox                                                                        |
+| No attachment filter                       | Provider list APIs do not expose reliable attachment sizes                                              |
+| Bulk filter finds nothing on Microsoft     | Header inspection is not implemented; uncertain classifications are excluded                            |

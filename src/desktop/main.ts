@@ -52,6 +52,19 @@ function openExternal(rawUrl: string): void {
   }
 }
 
+async function openAuthorizationInBrowser(rawUrl: string): Promise<void> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== "https:") throw new Error("Authorization URL must use HTTPS.");
+  await shell.openExternal(url.toString());
+}
+
+function refreshAfterOAuth(): void {
+  if (!mainWindow) return;
+  log.info("provider authorization completed; refreshing window");
+  mainWindow.webContents.reload();
+  focusExistingWindow();
+}
+
 function guardNavigation(event: ElectronEvent, rawUrl: string): void {
   if (!desktopConfig) {
     event.preventDefault();
@@ -286,7 +299,11 @@ async function start(): Promise<void> {
   desktopConfig = loadConfig();
   assertDesktopConfig(desktopConfig);
 
-  sentry = new MailSentryApp(desktopConfig, appRoot);
+  sentry = new MailSentryApp(desktopConfig, appRoot, {
+    desktopMode: true,
+    openExternal: openAuthorizationInBrowser,
+    onOAuthSuccess: refreshAfterOAuth,
+  });
   await sentry.start();
   log.info("desktop server ready", { url: desktopConfig.baseUrl });
 

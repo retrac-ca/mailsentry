@@ -89,6 +89,8 @@ Sanitized errors/notes:
 - [ ] Web OAuth client redirect URI exactly `http://127.0.0.1:4310/auth/gmail/callback` (or the configured origin).
 - [ ] `GOOGLE_CLIENT_ID` and optional `GOOGLE_CLIENT_SECRET` set in `.env`; server restarted.
 - [ ] Connected Gmail with **read-only** access.
+- [ ] Authorization opened in the system default browser, not inside the Electron window.
+- [ ] The loopback callback page said “You can return to MailSentry,” and the app window came to the front.
 - [ ] Settings shows the account, mode, and granted scopes.
 - [ ] **Check read-only connection** passes for Inbox, Spam, and Trash.
 - [ ] A scan selects only test messages by sender; counts look plausible.
@@ -114,6 +116,8 @@ Sanitized errors/notes:
 - [ ] Delegated permissions `Mail.Read`, `Mail.ReadWrite`, `openid`, `profile`, `email`, `offline_access` added; consent granted if required.
 - [ ] `MICROSOFT_CLIENT_ID`, optional secret, and tenant ID set; server restarted.
 - [ ] Connected with **read-only** access.
+- [ ] Authorization opened in the system default browser, not inside the Electron window.
+- [ ] The loopback callback page appeared and the app window came to the front.
 - [ ] Settings shows account, mode, granted scopes, and no unexpected scope warning.
 - [ ] **Check read-only connection** passes for Inbox, Junk Email, and Deleted Items.
 - [ ] A scan selects only test messages; counts look plausible.

@@ -147,20 +147,19 @@ export class ProviderManager {
   }
 
   async completeAuth(
-    sessionId: string,
     provider: ProviderId,
     code: string,
     state: string,
-  ): Promise<{ provider: ProviderId; mode: AuthMode; account: string | null }> {
+  ): Promise<{ sessionId: string; provider: ProviderId; mode: AuthMode; account: string | null }> {
     const pending = this.pending.get(state);
     if (!pending || pending.createdAt < Date.now() - AUTH_TTL_MS) {
       this.pending.delete(state);
       throw new AppError("FORBIDDEN", "The authorization request is unknown or expired. Start again.", 400);
     }
-    // Single-use state; delete before exchanging to prevent replay.
+    // Single-use state; delete before provider checks/exchange to prevent replay.
     this.pending.delete(state);
-    if (pending.provider !== provider || pending.sessionId !== sessionId) {
-      throw new AppError("FORBIDDEN", "The authorization response did not match this session.", 400);
+    if (pending.provider !== provider) {
+      throw new AppError("FORBIDDEN", "The authorization response did not match the provider.", 400);
     }
     if (!code) throw new AppError("VALIDATION", "The authorization code is missing.", 400);
 
@@ -177,7 +176,7 @@ export class ProviderManager {
         ? await fetchGmailAccount(tokens.accessToken, this.limiters.gmail)
         : accountFromIdToken(tokens.idToken);
 
-    this.connections.set(sessionId, provider, {
+    this.connections.set(pending.sessionId, provider, {
       provider,
       mode: pending.mode,
       account,
@@ -185,7 +184,20 @@ export class ProviderManager {
       connectionId: randomBytes(16).toString("base64url"),
       tokens,
     });
-    return { provider, mode: pending.mode, account };
+    return { sessionId: pending.sessionId, provider, mode: pending.mode, account };
+  }
+
+  /**
+   * Consume a pending authorization during a provider error callback. This does
+   * not exchange a code or create a connection, but prevents replay of state.
+   */
+  cancelAuth(provider: ProviderId, state: string): boolean {
+    const pending = this.pending.get(state);
+    if (!pending) return false;
+    this.pending.delete(state);
+    if (pending.provider !== provider) return false;
+    if (pending.createdAt < Date.now() - AUTH_TTL_MS) return false;
+    return true;
   }
 
   /** Identifies the exact connected account/mode; plans are bound to this value. */

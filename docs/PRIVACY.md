@@ -6,16 +6,17 @@ Local-first does not mean risk-free: provider APIs still see requests, OAuth ide
 
 ## Data MailSentry processes
 
-| Data                                                          | Where it lives                           | Purpose                                   | Retention                                           |
-| ------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------- | --------------------------------------------------- |
-| Domain and optional DKIM selector                             | Server memory + stderr log (domain only) | DNS diagnostics                           | Last 5 reports per session; session ≤8 h idle       |
-| DNS findings/observations                                     | Server memory                            | Display results                           | Same as above                                       |
-| Provider OAuth access/refresh tokens                          | Server process memory                    | API calls and refresh                     | Until disconnect, server restart, or session expiry |
-| Account email address                                         | Server memory                            | Display connection identity               | Until disconnect/restart                            |
-| Granted OAuth scope names                                     | Server memory + status API               | Permission diagnostics in Settings        | Until disconnect/restart                            |
-| Message IDs, folder, size, dates, subject/from snippet sample | Server memory                            | Preview, revalidation, execution, results | Plan ≤20 min; job summaries up to 20 per session    |
-| Cleanup job results                                           | Server memory                            | Progress/results/Activity                 | Up to 20 jobs per session                           |
-| Session ID + CSRF token                                       | Memory + HttpOnly cookie                 | Authenticate local session / prevent CSRF | Cookie is session-scoped; server TTL 8 h            |
+| Data                                                          | Where it lives                           | Purpose                                    | Retention                                           |
+| ------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| Domain and optional DKIM selector                             | Server memory + stderr log (domain only) | DNS diagnostics                            | Last 5 reports per session; session ≤8 h idle       |
+| DNS findings/observations                                     | Server memory                            | Display results                            | Same as above                                       |
+| Provider OAuth access/refresh tokens                          | Server process memory                    | API calls and refresh                      | Until disconnect, server restart, or session expiry |
+| OAuth state and PKCE verifier                                 | Server process memory                    | Desktop/system-browser callback validation | 10-minute TTL / consumed before exchange            |
+| Account email address                                         | Server memory                            | Display connection identity                | Until disconnect/restart                            |
+| Granted OAuth scope names                                     | Server memory + status API               | Permission diagnostics in Settings         | Until disconnect/restart                            |
+| Message IDs, folder, size, dates, subject/from snippet sample | Server memory                            | Preview, revalidation, execution, results  | Plan ≤20 min; job summaries up to 20 per session    |
+| Cleanup job results                                           | Server memory                            | Progress/results/Activity                  | Up to 20 jobs per session                           |
+| Session ID + CSRF token                                       | Memory + HttpOnly cookie                 | Authenticate local session / prevent CSRF  | Cookie is session-scoped; server TTL 8 h            |
 
 **Never downloaded or stored:** message bodies, full attachments, attachment contents, full mailbox listings, contacts, calendar data, passwords.
 
@@ -36,12 +37,12 @@ The packaged Electron app stores its desktop-specific data under:
   ...                  # Chromium cache/state files
 ```
 
-OAuth tokens, session IDs, cleanup plans/jobs, diagnostics, and provider login cookies remain memory-only. The Desktop uses a non-persistent Chromium partition and clears its storage at startup. The local HTTP server still contacts providers and DNS only when the corresponding feature is invoked. See [WINDOWS.md](WINDOWS.md).
+OAuth tokens, session IDs, cleanup plans/jobs, and diagnostics remain memory-only. The Desktop uses a non-persistent Chromium partition for the app UI and clears its storage at startup. Provider login cookies and authorization pages belong to the user's system browser in desktop mode. The local HTTP server still contacts providers and DNS only when the corresponding feature is invoked. See [WINDOWS.md](WINDOWS.md).
 
 ## Cookies and browser storage
 
 - One cookie: `ms_sid`, a random session identifier.
-- Flags: `HttpOnly` (not readable by JavaScript), `SameSite=Lax` (needed for the OAuth redirect back), `Path=/`, and `Secure` when the base URL is HTTPS.
+- Flags: `HttpOnly` (not readable by JavaScript), `SameSite=Lax` (blocks cross-site POSTs while allowing top-level navigation), `Path=/`, and `Secure` when the base URL is HTTPS.
 - No persistent `Max-Age` is set; the browser may keep it for the tab session, while the server expires idle sessions after 8 hours.
 - No `localStorage`, `sessionStorage`, IndexedDB, or service worker is used for credentials or mailbox data. The UI keeps only in-memory view state.
 - CSRF token is provided in the `/api/status` response and kept in a JavaScript variable, not a cookie or persistent storage.
@@ -62,11 +63,11 @@ Nothing external is contacted on page load. Requests occur only when you invoke 
 
 Provider requests are HTTPS. Redirects are disabled for provider API/token calls. Graph pagination is restricted to `graph.microsoft.com`; Gmail pagination tokens are opaque.
 
-There are **no** calls to analytics, CDNs, font services, error trackers, package registries, or AI services. The browser loads only same-origin `/app.js`, `/styles.css`, and `/favicon.svg`, consistent with the Content Security Policy. The desktop shell additionally opens provider authorization pages in the same window for the OAuth flow; those are provider-controlled pages, not MailSentry assets.
+There are **no** calls to analytics, CDNs, font services, error trackers, package registries, or AI services. The browser loads only same-origin `/app.js`, `/styles.css`, and `/favicon.svg`, consistent with the Content Security Policy. In the Windows desktop app, provider authorization opens in the user's system default browser, not in the Electron renderer. The local loopback callback receives only the provider's authorization response; the app window's cookies are not shared with that browser. Provider login cookies remain the browser's responsibility.
 
 ## Information visible to third parties
 
-- **Google/Microsoft** see the API calls and the account they are authorized for, including message IDs and operations requested. Their privacy terms and logging apply.
+- **Google/Microsoft** see the API calls and the account they are authorized for, including message IDs and operations requested. Their privacy terms and logging apply. In desktop mode their authorization/consent pages are opened in the system browser, so the provider sees the normal browser session and cookies.
 - **The DNS resolver** sees the domain and selector being checked. Use a resolver you trust, or run MailSentry with a resolver you control.
 - **Your network operator** may observe DNS queries and TLS metadata.
 - **The local machine** can observe process memory if compromised; tokens are not encrypted in memory.

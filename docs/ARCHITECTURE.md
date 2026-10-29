@@ -23,7 +23,7 @@ MailSentry is a single-process, local-first TypeScript application. It has no da
 | Vitest                       | Fast unit/integration tests with mocked `fetch` and synthetic provider           |
 | Zero runtime dependencies    | Smaller supply-chain and license surface                                         |
 
-Rejected for the MVP: React/Next (unnecessary runtime), Express/Fastify (tiny routing surface), databases/ORMs (conflicting retention and simplicity goals), Redis/queues (no background processing), provider SDKs (large surface; direct documented REST endpoints are sufficient), Electron (not needed for a localhost app).
+Rejected for the MVP: React/Next (unnecessary runtime), Express/Fastify (tiny routing surface), databases/ORMs (conflicting retention and simplicity goals), Redis/queues (no background processing), and provider SDKs (large surface; documented REST endpoints are sufficient). Electron is used only for the Windows desktop shell; the browser/server mode remains Electron-free.
 
 ## Component map
 
@@ -202,10 +202,11 @@ Capabilities are declared in `src/core/capabilities.ts` and shown in the UI. Not
 ## Authentication and sessions
 
 - Browser obtains an unguessable session ID cookie from `GET /api/status`.
-- Cookie is `HttpOnly`, `SameSite=Lax` (so the OAuth redirect back can carry it), and `Secure` when HTTPS.
+- Cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when HTTPS.
 - CSRF token is delivered only in the status JSON and required on every POST.
-- OAuth state is random, stored server-side, bound to session + provider + mode, expires in 10 minutes, and is single-use.
-- PKCE verifier/challenge use S256.
+- OAuth starts with a random `state` value and an S256 PKCE verifier/challenge stored server-side. State maps to the initiating session, provider, mode, redirect URI, and expiry; it is not tied to the callback browser's cookies and is single-use.
+- In desktop mode the Electron main process opens the provider URL in the system default browser; the loopback callback is accepted from state alone. Missing, unknown, reused, expired, or provider-mismatched state is rejected. Successful callbacks show a short browser page, reload/focus the app, and never expose tokens to the renderer. Browser/server mode retains the redirect back to the app.
+- PKCE verifier/challenge use S256. State, codes, and verifiers are never logged.
 - Google tokens come from `oauth2.googleapis.com`; Graph tokens from `login.microsoftonline.com/{tenant}/oauth2/v2.0/token`.
 - Refresh happens server-side with a per-connection lock. Failure deletes the connection and requires reconnection.
 - Tokens never appear in provider status responses, the browser bundle, logs, or error messages. Granted scope names are shown; they are not secrets.
@@ -219,21 +220,21 @@ Read-only vs cleanup mode is chosen before authorization. A read-only connection
 
 All routes are same-origin; no CORS. Mutations require `x-csrf-token`.
 
-| Method | Route                            | Purpose                                                                |
-| ------ | -------------------------------- | ---------------------------------------------------------------------- |
-| GET    | `/api/status`                    | Session creation, CSRF token, provider status, activity, privacy notes |
-| GET    | `/api/activity`                  | Session activity summaries                                             |
-| GET    | `/api/roadmap`                   | Parsed `ROADMAP.md` sections/statuses                                  |
-| POST   | `/api/diagnostics`               | Run bounded MX/TXT diagnostics                                         |
-| POST   | `/api/auth/:provider/start`      | Create OAuth authorize URL (mode: readonly/cleanup)                    |
-| POST   | `/api/auth/:provider/disconnect` | Delete local tokens                                                    |
-| POST   | `/api/providers/:provider/check` | Read-only folder/metadata readiness check                              |
-| GET    | `/auth/:provider/callback`       | OAuth authorization-code callback                                      |
-| POST   | `/api/cleanup/scan`              | Read-only scan → preview plan                                          |
-| POST   | `/api/cleanup/execute`           | Gate + start dry-run/execute job (HTTP 202)                            |
-| GET    | `/api/cleanup/jobs/:id`          | Job progress/results                                                   |
-| POST   | `/api/cleanup/jobs/:id/cancel`   | Request cancellation                                                   |
-| GET    | `/*`                             | Static browser bundle (strict allowlist; no directory listing)         |
+| Method | Route                            | Purpose                                                                  |
+| ------ | -------------------------------- | ------------------------------------------------------------------------ |
+| GET    | `/api/status`                    | Session creation, CSRF token, provider status, activity, privacy notes   |
+| GET    | `/api/activity`                  | Session activity summaries                                               |
+| GET    | `/api/roadmap`                   | Parsed `ROADMAP.md` sections/statuses                                    |
+| POST   | `/api/diagnostics`               | Run bounded MX/TXT diagnostics                                           |
+| POST   | `/api/auth/:provider/start`      | Create OAuth URL; desktop opens system browser, browser mode returns URL |
+| POST   | `/api/auth/:provider/disconnect` | Delete local tokens                                                      |
+| POST   | `/api/providers/:provider/check` | Read-only folder/metadata readiness check                                |
+| GET    | `/auth/:provider/callback`       | OAuth authorization-code callback                                        |
+| POST   | `/api/cleanup/scan`              | Read-only scan → preview plan                                            |
+| POST   | `/api/cleanup/execute`           | Gate + start dry-run/execute job (HTTP 202)                              |
+| GET    | `/api/cleanup/jobs/:id`          | Job progress/results                                                     |
+| POST   | `/api/cleanup/jobs/:id/cancel`   | Request cancellation                                                     |
+| GET    | `/*`                             | Static browser bundle (strict allowlist; no directory listing)           |
 
 Error shape:
 
@@ -280,8 +281,9 @@ The Windows build uses Electron as a thin shell around the existing local applic
 
 - The Electron main process loads provider configuration from `%APPDATA%\MailSentry\.env` (or the repository `.env` in development), starts one `MailSentryApp` HTTP server in-process on `127.0.0.1:4310`, and only then creates the window.
 - The renderer loads `http://127.0.0.1:4310` with `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, and no preload bridge or IPC surface.
-- Navigation is restricted to the local origin and known OAuth authorization hosts (`accounts.google.com`, `login.microsoftonline.com`, `login.live.com`, `account.live.com`, `login.microsoft.com`). Other HTTPS links open in the system browser; other schemes are refused.
-- Permission requests and webviews are denied. The Chromium session uses a non-persistent partition and is cleared at startup, so provider login cookies do not outlive the in-memory server session.
+- Navigation is restricted to the local origin only. Provider authorization is opened in the system default browser by the Electron main process; the provider host is never loaded in the renderer.
+- The loopback callback uses server-side OAuth state + PKCE, not a shared browser cookie. State is single-use and expires after 10 minutes. The success page tells the user to return to MailSentry; the app window reloads and focuses.
+- Permission requests and webviews are denied. The Chromium session uses a non-persistent partition and is cleared at startup.
 - Closing the window stops the HTTP server and closes sockets. A running cleanup job triggers a warning before quit; completed changes are never claimed to be rolled back.
 - Window size/maximized state is stored in the user-data directory; logs are written to `logs/mailsentry.log` with 5 MB rotation and the existing redaction rules.
 - The app is single-instance. A fixed loopback port is required because OAuth redirect URIs are registered for that exact origin.

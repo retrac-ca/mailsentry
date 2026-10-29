@@ -56,14 +56,14 @@ describe("desktop runtime configuration", () => {
     ensureDesktopDirectories(paths);
   });
 
-  it("allows the app origin and OAuth providers, but blocks everything else", () => {
+  it("allows only the local app origin and blocks provider/remote hosts", () => {
     const origin = "http://127.0.0.1:4310";
     expect(isAllowedNavigation("http://127.0.0.1:4310/#/settings", origin)).toBe(true);
-    expect(isAllowedNavigation("https://accounts.google.com/o/oauth2/v2/auth", origin)).toBe(true);
+    expect(isAllowedNavigation("https://accounts.google.com/o/oauth2/v2/auth", origin)).toBe(false);
     expect(
       isAllowedNavigation("https://login.microsoftonline.com/common/oauth2/v2.0/authorize", origin),
-    ).toBe(true);
-    expect(isAllowedNavigation("https://login.live.com/oauth20_authorize.srf", origin)).toBe(true);
+    ).toBe(false);
+    expect(isAllowedNavigation("https://login.live.com/oauth20_authorize.srf", origin)).toBe(false);
     expect(isAllowedNavigation("https://evil.example/", origin)).toBe(false);
     expect(isAllowedNavigation("http://127.0.0.1:9999/", origin)).toBe(false);
     expect(isAllowedNavigation("javascript:alert(1)", origin)).toBe(false);

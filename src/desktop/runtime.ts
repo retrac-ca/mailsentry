@@ -91,26 +91,9 @@ export function writeWindowState(file: string, state: WindowState): void {
   }
 }
 
-export const OAUTH_NAVIGATION_HOSTS = new Set([
-  "accounts.google.com",
-  "login.microsoftonline.com",
-  "login.live.com",
-  "account.live.com",
-  "login.microsoft.com",
-]);
-
-/** Navigation required for the in-app OAuth redirect flow. */
 export function isAllowedNavigation(rawUrl: string, appOrigin: string): boolean {
   try {
-    const target = new URL(rawUrl);
-    if (target.origin === appOrigin) return true;
-    const host = target.hostname.toLowerCase();
-    return (
-      target.protocol === "https:" &&
-      (OAUTH_NAVIGATION_HOSTS.has(host) ||
-        host.endsWith(".microsoftonline.com") ||
-        host.endsWith(".live.com"))
-    );
+    return new URL(rawUrl).origin === appOrigin;
   } catch {
     return false;
   }

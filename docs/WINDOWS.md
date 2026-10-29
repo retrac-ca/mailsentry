@@ -46,14 +46,28 @@ MailSentry.exe (Electron main process)
   │    sandbox: true
   │    webSecurity: true
   │    in-memory session partition ("mailsentry")
-  ├─ restricts navigation to the local origin + OAuth provider hosts
+  ├─ restricts navigation to the local origin only
   ├─ denies renderer permissions and webviews
+  ├─ opens provider authorization in the system default browser
+  ├─ receives the loopback callback using server-side state + PKCE
   └─ stops the HTTP server and closes sockets on quit
 ```
 
-There is no preload script, no Electron IPC surface, and no Node.js access in the renderer. OAuth authorization pages are loaded in the same window so the local callback can use the same session cookie; only known provider hosts are permitted for navigation. External links open in the system browser.
+There is no preload script, no Electron IPC surface, and no Node.js access in the renderer. OAuth authorization pages are **not loaded in the Electron window**: the main process opens them with `shell.openExternal`, and the loopback server receives the callback. State and PKCE verifier are stored server-side; the callback does not depend on sharing the app window's session cookie. External links open in the system browser.
 
 The local server remains the same loopback-only security boundary: CSRF tokens, Origin checks, Host validation, loopback binding, metadata-only scans, plan revalidation, and typed destructive confirmations are unchanged.
+
+### OAuth flow
+
+1. The renderer asks the local server to start authorization.
+2. The server creates a random 192-bit `state` value and an S256 PKCE verifier/challenge, stores them in memory with the initiating app session, provider, and mode, and returns no authorization URL to the renderer in desktop mode.
+3. The Electron main process opens the provider authorization URL in the system default browser with `shell.openExternal`.
+4. The provider redirects to the existing `http://127.0.0.1:4310/auth/.../callback` route. The callback is validated from the server-side state alone; it does not require the Electron session cookie.
+5. State is single-use, expires after 10 minutes, and is consumed before any token exchange. Missing, unknown, reused, expired, or provider-mismatched state is rejected.
+6. On success the system browser shows “You can return to MailSentry.”, the Electron window reloads, and the window is brought to the front. Tokens remain in server memory only.
+7. On denial or failure, the state is consumed (when known), the browser shows a short failure page, and the app window is not treated as connected.
+
+Provider pages are provider-controlled and open in the user's normal browser. OAuth client secrets and provider login cookies are not handled by the Electron renderer.
 
 ## Requirements
 
@@ -181,12 +195,13 @@ OAuth client IDs and optional client secrets are not embedded in the application
 ### Data not persisted
 
 - OAuth access/refresh tokens: server process memory only.
+- OAuth state and PKCE verifiers: server process memory only, 10-minute TTL.
 - Session IDs/CSRF tokens: memory + in-memory browser session.
 - Cleanup plans, jobs, diagnostics: memory only.
-- Provider login cookies: in-memory Chromium partition; cleared at startup.
+- Provider login cookies: handled by the user's system browser, not by the Electron renderer.
 - Full message bodies/attachments: never downloaded.
 
-Chromium may write standard cache/state files under the user-data directory, but cookies are not persisted by the non-persistent session partition.
+Chromium may write standard cache/state files under the user-data directory, but no provider authorization pages are rendered there and the app's session partition is cleared at startup.
 
 ## Startup, shutdown, and errors
 
@@ -227,7 +242,8 @@ Run on a test Windows machine/VM, never against a primary mailbox:
 - [ ] Overview, Email Health, Mailbox Cleanup, Activity, Settings, Roadmap navigation.
 - [ ] Email Health for a public domain.
 - [ ] Add OAuth values to `%APPDATA%\MailSentry\.env`; restart.
-- [ ] Connect Gmail/Microsoft read-only; **Check read-only connection**.
+- [ ] Connect Gmail/Microsoft read-only; confirm the system browser opens, the callback page appears, and the app window comes to the front.
+- [ ] **Check read-only connection**.
 - [ ] Scan and dry-run only test messages; verify no mailbox changes.
 - [ ] Close the window; confirm no `MailSentry.exe` remains in Task Manager.
 - [ ] Relaunch; confirm window size and logs are retained.
@@ -253,11 +269,11 @@ Installer execution/upgrade/uninstall is **not** verified in this repository. Tr
 
 ## Known limitations
 
+- OAuth provider pages open in the system default browser; if no browser opens, check the Windows default-browser configuration.
 - Live Gmail/Microsoft OAuth has not been verified against real accounts.
 - Installer installation, upgrade, uninstall, and code signing are not verified.
 - No auto-update mechanism.
 - Electron adds a large runtime and memory footprint compared with the headless server.
-- OAuth provider pages are loaded inside Electron; if a provider requires a popup-based flow, it may need additional handling. This is untested live.
 - The desktop shell intentionally supports only `http://127.0.0.1` with a fixed port, not custom HTTPS/reverse-proxy deployments.
-- Browser cookies are in-memory and cleared at startup; users must reconnect after restart.
+- Provider login cookies live in the system browser; MailSentry does not clear or manage them.
 - No independent security audit.

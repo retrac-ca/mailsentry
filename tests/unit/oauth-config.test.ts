@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   accountFromIdToken,
   GoogleOAuthClient,
@@ -16,6 +17,10 @@ import { AppError } from "../../src/core/errors.js";
 import { testConfig } from "../helpers/fixtures.js";
 
 describe("OAuth URL construction", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("builds a Google authorization URL with PKCE, state, offline access, and exact redirect", () => {
     const { verifier, challenge } = pkcePair();
     expect(verifier.length).toBeGreaterThan(40);
@@ -167,9 +172,89 @@ describe("provider manager without live credentials", () => {
   it("does not return an authorize URL for an invalid callback completion", async () => {
     const config = testConfig({ google: { clientId: "google-client", clientSecret: null } });
     const manager = new ProviderManager(config, new ConnectionStore());
-    await expect(manager.completeAuth("session", "gmail", "code", "unknown-state")).rejects.toThrow(
+    await expect(manager.completeAuth("gmail", "code", "unknown-state")).rejects.toThrow(
       /unknown or expired/i,
     );
+  });
+});
+
+describe("OAuth state and PKCE", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function configuredManager() {
+    return new ProviderManager(
+      testConfig({ google: { clientId: "google-client", clientSecret: null } }),
+      new ConnectionStore(),
+    );
+  }
+
+  function startState(manager: ProviderManager): string {
+    const url = new URL(manager.beginAuth("session", "gmail", "readonly").authorizeUrl);
+    const state = url.searchParams.get("state");
+    expect(state).toBeTruthy();
+    return state as string;
+  }
+
+  it("generates a valid S256 PKCE challenge", () => {
+    const { verifier, challenge } = pkcePair();
+    expect(verifier.length).toBeGreaterThanOrEqual(43);
+    expect(challenge).toBe(createHash("sha256").update(verifier).digest("base64url"));
+    expect(challenge).not.toBe(verifier);
+  });
+
+  it("creates unique, URL-safe state values and a PKCE authorization URL", () => {
+    const manager = configuredManager();
+    const first = new URL(manager.beginAuth("session", "gmail", "readonly").authorizeUrl);
+    const second = new URL(manager.beginAuth("session", "gmail", "readonly").authorizeUrl);
+    const firstState = first.searchParams.get("state");
+    const secondState = second.searchParams.get("state");
+    expect(firstState).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(secondState).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(firstState).not.toBe(secondState);
+    expect(first.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(first.searchParams.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(first.searchParams.get("redirect_uri")).toBe("http://127.0.0.1:4310/auth/gmail/callback");
+  });
+
+  it("rejects missing and unknown state values", async () => {
+    const manager = configuredManager();
+    await expect(manager.completeAuth("gmail", "code", "")).rejects.toThrow(/unknown or expired/i);
+    await expect(manager.completeAuth("gmail", "code", "not-a-real-state")).rejects.toThrow(
+      /unknown or expired/i,
+    );
+  });
+
+  it("rejects expired state values", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-29T12:00:00.000Z"));
+    const manager = configuredManager();
+    const state = startState(manager);
+    vi.setSystemTime(new Date("2026-10-29T12:11:00.000Z"));
+    await expect(manager.completeAuth("gmail", "code", state)).rejects.toThrow(/unknown or expired/i);
+  });
+
+  it("consumes state before exchange and rejects replay", async () => {
+    const manager = configuredManager();
+    const state = startState(manager);
+    await expect(manager.completeAuth("gmail", "", state)).rejects.toThrow(/code is missing/i);
+    await expect(manager.completeAuth("gmail", "code", state)).rejects.toThrow(/unknown or expired/i);
+  });
+
+  it("consumes state on provider mismatch", async () => {
+    const manager = configuredManager();
+    const state = startState(manager);
+    await expect(manager.completeAuth("microsoft", "code", state)).rejects.toThrow(/provider/i);
+    await expect(manager.completeAuth("gmail", "code", state)).rejects.toThrow(/unknown or expired/i);
+  });
+
+  it("consumes state on a provider error callback", () => {
+    const manager = configuredManager();
+    const state = startState(manager);
+    expect(manager.cancelAuth("gmail", state)).toBe(true);
+    expect(manager.cancelAuth("gmail", state)).toBe(false);
+    expect(manager.cancelAuth("gmail", "unknown-state")).toBe(false);
   });
 });
 

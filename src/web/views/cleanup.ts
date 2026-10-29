@@ -187,7 +187,18 @@ function providerCard(
           button.disabled = true;
           button.textContent = "Opening authorization…";
           void startAuth(provider.provider, mode)
-            .then((url) => window.location.assign(url))
+            .then((result) => {
+              if (result.authorizeUrl) {
+                window.location.assign(result.authorizeUrl);
+                return;
+              }
+              button.textContent = "Continue in your browser…";
+              window.setTimeout(() => {
+                if (!button.isConnected) return;
+                button.disabled = false;
+                button.textContent = label;
+              }, 15_000);
+            })
             .catch((error: unknown) => {
               button.disabled = false;
               button.textContent = label;

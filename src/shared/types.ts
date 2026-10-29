@@ -277,6 +277,12 @@ export interface AppStatus {
   };
 }
 
+export interface AuthStartResponse {
+  openedExternally: boolean;
+  /** Present only in browser/server mode; desktop mode opens the system browser. */
+  authorizeUrl?: string;
+}
+
 export interface RoadmapItem {
   text: string;
   status: "complete" | "in-progress" | "planned" | "blocked";
