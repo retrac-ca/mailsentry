@@ -1,0 +1,7 @@
+dist
+node_modules
+coverage
+bench/results
+package-lock.json
+.env
+.env.*

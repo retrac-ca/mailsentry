@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MailSentry">
+  <rect width="64" height="64" rx="14" fill="#0f6f66"/>
+  <path d="M14 21h36v22H14z" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M14 22l18 13 18-13" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="46" cy="44" r="10" fill="#ffffff"/>
+  <path d="M41.5 44l3 3 6-6" fill="none" stroke="#0f6f66" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

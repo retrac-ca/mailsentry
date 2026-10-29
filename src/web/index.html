@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="MailSentry — email infrastructure health checks and safe, metadata-only mailbox cleanup. Local-first and privacy-conscious."
+    />
+    <title>MailSentry — Email health and safe cleanup</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header class="app-header">
+      <div class="header-inner">
+        <a class="brand" href="#/overview" aria-label="MailSentry overview">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span class="brand-text">
+            <span class="brand-name">MailSentry</span>
+            <span class="brand-tagline">Know your inbox. Protect your email.</span>
+          </span>
+        </a>
+        <div class="header-meta">
+          <span id="connection-summary" class="connection-summary">Checking local session…</span>
+        </div>
+      </div>
+      <nav class="main-nav" aria-label="Main navigation">
+        <ul>
+          <li><a href="#/overview" data-route="overview">Overview</a></li>
+          <li><a href="#/health" data-route="health">Email Health</a></li>
+          <li><a href="#/cleanup" data-route="cleanup">Mailbox Cleanup</a></li>
+          <li><a href="#/activity" data-route="activity">Activity / Results</a></li>
+          <li><a href="#/settings" data-route="settings">Settings</a></li>
+          <li><a href="#/roadmap" data-route="roadmap">Roadmap</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <div id="global-banner" class="global-banner" role="status" hidden></div>
+
+    <main id="main" tabindex="-1">
+      <div class="loading" role="status">Loading MailSentry…</div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-inner">
+        <p>
+          MailSentry is a RETRAC project. Local-first, no telemetry.
+          <a href="https://retrac.ca" rel="noopener noreferrer" target="_blank">retrac.ca</a>
+        </p>
+        <p class="footer-meta">
+          <span id="app-version">v0.1.0</span> · <a href="#/settings">Privacy and network use</a> ·
+          <a href="#/roadmap">Roadmap</a>
+        </p>
+      </div>
+    </footer>
+
+    <noscript>
+      <p class="noscript">MailSentry requires JavaScript to run the local interface.</p>
+    </noscript>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
