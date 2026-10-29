@@ -357,6 +357,6 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) first. Ne
 
 ## License
 
-This repository is licensed under **GNU AGPL-3.0**; see [LICENSE](LICENSE) and the [licensing review](docs/LICENSING.md).
+This repository is licensed under the **MIT License**; see [LICENSE](LICENSE) and the [licensing review](docs/LICENSING.md).
 
-The original project brief proposed MIT “subject to a compatibility review.” The repository was initialized with AGPL-3.0 before this implementation, and that pre-existing license was preserved rather than silently replaced. A licensing decision (retain AGPL-3.0 or relicense with the copyright holder's approval) remains open. All dependencies are development-only; verify their licenses with your normal tooling before redistribution.
+MIT is a permissive open-source license: you may use, modify, and redistribute the code, including commercially, provided the copyright and permission notice are retained. The software is provided without warranty. All runtime dependencies are absent, and the development-only dependencies use permissive licenses compatible with MIT.

@@ -1,46 +1,51 @@
 # Licensing Review
 
-This document records the licensing state and a compatibility review. It is not legal advice.
+This document records the project's licensing state and a compatibility review. It is not legal advice.
 
 ## Current license
 
-The repository was initialized with the full text of the **GNU Affero General Public License, version 3** (`LICENSE`). That pre-existing license has been **preserved**, not replaced.
+MailSentry is licensed under the **MIT License**. The full text is in [`LICENSE`](../LICENSE).
 
-The implementation adds no separate license headers and does not relicense existing content. `package.json` declares `AGPL-3.0-only` to match the version-3-only text; the repository owner may prefer `AGPL-3.0-or-later` if an “or later” grant is intended. This is a decision for the copyright holder.
+```text
+Copyright (c) 2026 RETRAC
+```
 
-### Discrepancy with the implementation brief
+The `package.json` license field is `MIT`, and the in-app Settings page reports MIT. MIT is an OSI-approved, permissive open-source license.
 
-The brief proposed **MIT**, “subject to a compatibility review.” The repository already contained AGPL-3.0 before implementation. Project instructions also said not to overwrite a pre-existing license without review. Therefore:
+## What MIT allows
 
-- AGPL-3.0 remains in place.
-- The README and SECURITY policy state the mismatch openly.
-- No attempt was made to silently relicense or remove the existing terms.
+You may:
 
-### What a relicensing decision involves
+- use the software for personal, internal, or commercial purposes;
+- copy and redistribute it;
+- modify it and distribute modified versions;
+- sublicense it;
+- combine it with other code, including proprietary code.
 
-AGPL-3.0 is a strong copyleft license with a network-use clause. MIT is permissive. Moving from AGPL to MIT would require:
+You must:
 
-1. Confirmation that the copyright holder(s) own or control all contributed code.
-2. Replacement of the `LICENSE` file and package metadata.
-3. Review of any future contributions made under AGPL; those contributors would need to agree to relicensing (or their contributions removed).
-4. A note in release history explaining the change.
+- include the copyright notice and permission notice in copies or substantial portions of the software.
 
-There is only an initial commit plus this implementation in the current history; no external contributions were present at audit time. A relicensing decision is nonetheless an owner decision and is not made here.
+The software is provided **without warranty**. The authors are not liable for damages arising from its use.
+
+MIT does not require publishing source changes, and it has no network-use copyleft clause.
+
+## License history
+
+The repository was initially created with the GNU Affero General Public License v3. It was not developed or distributed under AGPL beyond this local repository/initial commit. The repository owner subsequently requested a permissive open-source license, and the project was relicensed to MIT before any public release or external contribution.
+
+There were no third-party contributions in the repository history at the time of relicensing. The copyright holder is RETRAC. Any future relicensing should be handled in a dedicated change with owner approval.
 
 ## Runtime dependencies
 
-**None.** The server, CLI, diagnostics, cleanup core, and browser bundle use Node.js built-ins and hand-written TypeScript/CSS. Nothing is vendored from third parties.
-
-This means MailSentry itself introduces no runtime third-party license obligations beyond Node.js and the project license.
+**None.** The server, CLI, diagnostics, cleanup core, and browser client use Node.js built-ins and hand-written TypeScript/CSS. MailSentry introduces no runtime third-party license obligations.
 
 ## Development dependencies
-
-Top-level development dependencies at implementation time:
 
 | Package               | License    | Distributed to users?                         |
 | --------------------- | ---------- | --------------------------------------------- |
 | `typescript`          | Apache-2.0 | No (build-time)                               |
-| `esbuild`             | MIT        | No (build-time; bundle contains project code) |
+| `esbuild`             | MIT        | No (build-time; output contains project code) |
 | `tsx`                 | MIT        | No (development runner)                       |
 | `vitest`              | MIT        | No                                            |
 | `@vitest/coverage-v8` | MIT        | No                                            |
@@ -49,35 +54,30 @@ Top-level development dependencies at implementation time:
 | `prettier`            | MIT        | No                                            |
 | `@types/node`         | MIT        | No                                            |
 
-All are permissive licenses compatible with distributing the project under AGPL-3.0. They are development-only and are not shipped in the application bundle or runtime image produced by `npm run build` (the `dist/` output contains compiled project code plus the bundled browser client).
+All are permissive and compatible with distributing the project under MIT. They are development-only and are not shipped in `dist/`.
 
-Transitive development dependencies may carry other permissive licenses. Run a license inventory before a formal release, for example:
+Transitive development dependencies may have other permissive licenses. Before a formal release, run an inventory:
 
 ```bash
 npx license-checker --summary --production   # runtime tree should be empty
-npx license-checker --summary                # includes development tree
+npx license-checker --summary
 ```
 
-or inspect `node_modules/*/package.json` licenses. This review did not enumerate every transitive package.
+or inspect `node_modules/*/package.json`. This document does not enumerate every transitive package.
 
 ## Content and assets
 
-- `src/web/favicon.svg` and the interface styles are original project assets.
-- No third-party fonts, icon sets, images, or copied code are included. The UI uses system fonts.
-- DNS parsing, OAuth flows, provider adapters, and UI code were written for this project; no provider SDK code was copied.
-- Product name, tagline, and RETRAC identity are used as provided in the brief.
+- `src/web/favicon.svg`, the interface styles, and the application code are original project work.
+- No third-party fonts, icon sets, images, or vendored source are included. The UI uses system fonts.
+- Product name, tagline, and RETRAC identity are used as provided for this project.
 
-## Distribution implications
+## Third-party services
 
-- AGPL-3.0 requires source availability to users interacting with the software over a network if a modified version is offered as a service. MailSentry is local-first, but operators who expose modified versions should review AGPL obligations.
-- MIT would permit broader reuse and proprietary integration. Choosing it is a business/community decision, not a technical blocker for this codebase.
-- Provider API terms (Google, Microsoft) are separate from the software license and must be followed regardless of the repository license.
+MIT covers the MailSentry source code only. Google, Microsoft, DNS providers, and other services have their own terms and privacy policies, which apply independently of this license.
 
-## Recommendation
+## Release checklist
 
-1. Have the copyright holder confirm the intended license (retain AGPL-3.0 or relicense to MIT).
-2. If relicensing, do it in a dedicated commit with a clear rationale and updated README/package metadata.
-3. Before any public release, run a full dependency-license inventory and record it in release notes.
-4. Keep this document updated if the decision changes.
-
-No legal conclusions beyond license compatibility of the listed dev dependencies are asserted.
+1. Keep `LICENSE`, `package.json`, README, CONTRIBUTING, and the Settings page in sync with the license.
+2. Include the MIT notice in source or binary distributions.
+3. Run a dependency-license inventory before publishing a release.
+4. Record any future license change in the repository history with explicit owner approval.

@@ -273,7 +273,7 @@ export const renderSettings: View = (root, context) => {
         h("dt", { text: "Server" }),
         h("dd", {}, [h("code", { text: context.status.baseUrl })]),
         h("dt", { text: "License" }),
-        h("dd", { text: "GNU AGPL-3.0 (pre-existing repository license; see LICENSE)" }),
+        h("dd", { text: "MIT License (open source; see LICENSE)" }),
         h("dt", { text: "Source" }),
         h("dd", {}, [
           h("a", {

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Lightweight email infrastructure health checker and mailbox cleanup tool",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"

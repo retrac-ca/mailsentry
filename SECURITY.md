@@ -145,7 +145,7 @@ Application logs to stderr include domains, providers, actions, and aggregate co
 - The benchmark is synthetic and does not model provider latency or quota behavior.
 - A hard process crash (power loss, `kill -9`, OOM) during execution cannot produce an in-process report. Provider operations already sent may have completed; verify the mailbox before retrying. Graceful cancellation does report partial results.
 - Dependency auditing covers known advisories only; it cannot prove absence of compromise.
-- The repository's AGPL-3.0 license was pre-existing and is pending an explicit licensing decision; this is a legal/compatibility matter, not a security control.
+- The repository is licensed under MIT; this is a legal/compatibility matter, not a security control.
 
 ## Dependency and supply-chain posture
 

@@ -123,4 +123,4 @@ Maintainers may request changes for security, accessibility, licensing, or scope
 
 ## License of contributions
 
-This repository is currently licensed under **AGPL-3.0** (see [LICENSE](LICENSE)). By submitting a contribution, you agree it may be distributed under the repository's current license. The project's licensing decision is pending; do not assume a future relicense without maintainer confirmation.
+This repository is licensed under the **MIT License** (see [LICENSE](LICENSE)). By submitting a contribution, you agree that it may be distributed under the repository's MIT license.
